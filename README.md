@@ -7,10 +7,13 @@
 [![Database: PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL%2016-336791?logo=postgresql)](https://www.postgresql.org/)
 [![ORM: Prisma](https://img.shields.io/badge/ORM-Prisma%206-2d3748?logo=prisma)](https://www.prisma.io/)
 [![Tests: 18 Passed](https://img.shields.io/badge/Tests-18%2F18%20Passed-brightgreen)](https://jestjs.io/)
+[![Live Frontend](https://img.shields.io/badge/Live_Frontend-Vercel-black?logo=vercel)](https://dhaka-tesla-pool-lake.vercel.app)
+[![Live Backend](https://img.shields.io/badge/Live_API-Render-46E3B7?logo=render)](https://dhaka-tesla-pool-1pr6.onrender.com/api)
 
 ---
 
 ## 🎥 1. Demo Video Link
+* **Live Application:** [https://dhaka-tesla-pool-lake.vercel.app](https://dhaka-tesla-pool-lake.vercel.app)
 * **Walkthrough Video (Loom):** [Click to watch the 6-Minute Loom Walkthrough Video](https://www.loom.com/) *(Paste your final Loom URL here)*
 
 ---
@@ -243,11 +246,13 @@ Switch between story personas instantly using the **Actor Switcher** in the top 
 
 ---
 
-## 🌐 11. Deployment URL & Constraints
+## 🌐 11. Deployment URLs & Infrastructure
 
-* **Deployment URL:** [http://localhost:3000](http://localhost:3000) (Self-contained Docker Compose Deployment)
-* **API Documentation:** [http://localhost:4000/api/docs](http://localhost:4000/api/docs)
-* **Deployment Constraint Note:** In compliance with Section 6 (free-tier only), full-stack deployment is provided via a fully reproducible Docker Compose setup. Free cloud hosts (Render/Railway free tier) impose cold starts and ephemeral database limits that disrupt real-time SSE connections and concurrent seat locking.
+* **Live Web Application (Vercel):** [https://dhaka-tesla-pool-lake.vercel.app](https://dhaka-tesla-pool-lake.vercel.app)
+* **Live Backend REST API (Render):** [https://dhaka-tesla-pool-1pr6.onrender.com/api](https://dhaka-tesla-pool-1pr6.onrender.com/api)
+* **Live Interactive Swagger Docs (Render):** [https://dhaka-tesla-pool-1pr6.onrender.com/api/docs](https://dhaka-tesla-pool-1pr6.onrender.com/api/docs)
+* **Local Full-Stack Deployment:** [http://localhost:3000](http://localhost:3000) (Self-contained Docker Compose Deployment)
+* **Deployment Constraint Note:** In compliance with Section 6 (free-tier only), full-stack deployment is provided via both live public hosting (Vercel + Render) and a fully reproducible Docker Compose setup. On Render's free tier, the web service may spin down during periods of inactivity (cold start ~30-50s).
 
 ---
 
