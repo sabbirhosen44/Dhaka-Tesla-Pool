@@ -1,4 +1,10 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const getApiBase = () => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+  const clean = envUrl.trim().replace(/\/+$/, '');
+  return clean.endsWith('/api') ? clean : `${clean}/api`;
+};
+
+export const API_BASE = getApiBase();
 
 export async function apiFetch<T>(
   path: string,

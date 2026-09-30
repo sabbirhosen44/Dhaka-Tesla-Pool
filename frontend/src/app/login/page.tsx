@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { getActors, Actor } from '@/lib/api';
+import { getActors, Actor, API_BASE } from '@/lib/api';
 
 const ACTOR_BIOS: Record<string, string> = {
   Jashim: 'Tesla Model 3 "Bullet" driver — Banani corridors',
@@ -24,7 +24,7 @@ export default function LoginPage() {
   useEffect(() => {
     getActors()
       .then(setActors)
-      .catch(() => setError('Backend offline. Please ensure backend is running on port 4000.'))
+      .catch((err) => setError(`Backend offline (${API_BASE}): ${err?.message || 'Please check backend URL or CORS'}`))
       .finally(() => setFetching(false));
   }, []);
 

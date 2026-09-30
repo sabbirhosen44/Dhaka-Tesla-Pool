@@ -8,8 +8,24 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Enable CORS for frontend client
+  const corsOrigin = process.env.CORS_ORIGIN;
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (!corsOrigin || corsOrigin === '*' || corsOrigin === 'all') {
+        return callback(null, true);
+      }
+      const allowed = corsOrigin.split(',').map((s) => s.trim().toLowerCase());
+      const lowerOrigin = origin.toLowerCase();
+      if (
+        allowed.includes(lowerOrigin) ||
+        lowerOrigin.endsWith('.vercel.app') ||
+        lowerOrigin.includes('localhost')
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
   });
 
