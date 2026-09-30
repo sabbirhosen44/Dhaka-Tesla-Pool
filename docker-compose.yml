@@ -6,9 +6,9 @@ services:
     container_name: dhaka_tesla_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-tesla_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tesla_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-dhaka_tesla_pool}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -20,6 +20,41 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dhaka_tesla_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tesla_admin}:${POSTGRES_PASSWORD:-tesla_secret}@postgres:5432/${POSTGRES_DB:-dhaka_tesla_pool}?schema=public
+      PORT: 4000
+      JWT_SECRET: ${JWT_SECRET:-dhaka_tesla_jwt_secret_dev_2026}
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - tesla_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dhaka_tesla_frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - tesla_network
 
 networks:
   tesla_network:
