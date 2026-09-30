@@ -169,14 +169,30 @@ export class RideRequestService {
     // Atomic cancel and pool seat decrement
     await this.prisma.$transaction(async (tx) => {
       if (request.poolMember) {
-        await tx.pool.update({
+        const pool = await tx.pool.findUnique({
           where: { id: request.poolMember.poolId },
-          data: {
-            occupiedSeats: { decrement: request.seatsRequested },
-            status: 'OPEN',
-          },
         });
+        const remainingOccupied = Math.max(0, (pool?.occupiedSeats ?? 0) - request.seatsRequested);
+
         await tx.poolMember.delete({ where: { id: request.poolMember.id } });
+
+        if (remainingOccupied <= 0) {
+          await tx.pool.update({
+            where: { id: request.poolMember.poolId },
+            data: {
+              occupiedSeats: 0,
+              status: 'CANCELLED',
+            },
+          });
+        } else {
+          await tx.pool.update({
+            where: { id: request.poolMember.poolId },
+            data: {
+              occupiedSeats: remainingOccupied,
+              status: 'OPEN',
+            },
+          });
+        }
       }
 
       await tx.rideRequest.update({

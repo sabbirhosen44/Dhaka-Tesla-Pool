@@ -117,8 +117,24 @@ export interface Vehicle {
   model?: string;
   plate?: string;
   capacity: number;
+  occupiedSeats?: number;
+  availableSeats?: number;
   isOnline: boolean;
   driver?: UserProfile;
+  activePool?: {
+    id: string;
+    status: string;
+    occupiedSeats: number;
+    capacity: number;
+    corridor?: string | null;
+    passengers?: Array<{
+      id: string;
+      passengerName: string;
+      pickupZone: string;
+      dropoffZone: string;
+      seatsAllocated: number;
+    }>;
+  } | null;
 }
 
 export interface ManifestPassenger {

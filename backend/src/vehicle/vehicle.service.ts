@@ -1,22 +1,84 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { DHAKA_ZONES } from '../common/constants/dhaka-zones';
 
 @Injectable()
 export class VehicleService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Get all registered vehicles
+   * Get all registered vehicles with real-time dynamic capacity and occupancy
    */
   async getAllVehicles(isOnlineOnly?: boolean) {
-    return this.prisma.vehicle.findMany({
+    const vehicles = await this.prisma.vehicle.findMany({
       where: isOnlineOnly !== undefined ? { isOnline: isOnlineOnly } : undefined,
       include: {
         driver: {
           select: { id: true, name: true, phone: true, role: true },
         },
+        pools: {
+          where: {
+            status: { in: ['OPEN', 'FULL', 'ACTIVE'] },
+          },
+          include: {
+            poolMembers: {
+              include: {
+                rideRequest: {
+                  select: {
+                    id: true,
+                    pickupZone: true,
+                    dropoffZone: true,
+                    passenger: {
+                      select: { id: true, name: true, phone: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
       },
       orderBy: { createdAt: 'desc' },
+    });
+
+    return vehicles.map((v) => {
+      const activePool = v.pools?.[0];
+      const occupiedSeats = activePool ? activePool.occupiedSeats : 0;
+      const availableSeats = Math.max(0, v.capacity - occupiedSeats);
+      const firstMember = activePool?.poolMembers?.[0]?.rideRequest;
+      const activeCorridor = firstMember
+        ? DHAKA_ZONES[firstMember.dropoffZone]?.corridor || 'CENTRAL_CONNECT'
+        : null;
+
+      return {
+        id: v.id,
+        driverId: v.driverId,
+        model: v.model,
+        capacity: v.capacity,
+        occupiedSeats,
+        availableSeats,
+        isOnline: v.isOnline,
+        createdAt: v.createdAt,
+        driver: v.driver,
+        activePool: activePool
+          ? {
+              id: activePool.id,
+              status: activePool.status,
+              occupiedSeats: activePool.occupiedSeats,
+              capacity: activePool.capacity,
+              corridor: activeCorridor,
+              passengers: activePool.poolMembers.map((m) => ({
+                id: m.id,
+                passengerName: m.rideRequest.passenger.name,
+                pickupZone: m.rideRequest.pickupZone,
+                dropoffZone: m.rideRequest.dropoffZone,
+                seatsAllocated: m.seatsAllocated,
+              })),
+            }
+          : null,
+      };
     });
   }
 

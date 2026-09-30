@@ -81,6 +81,24 @@ export default function PassengerPage() {
     } catch { /* silent */ }
   }, []);
 
+  const selectedVehicle = fleet.find((v) => v.id === selectedVehicleId);
+  const fleetMaxAvailable = fleet.reduce(
+    (max, v) => Math.max(max, v.availableSeats ?? v.capacity),
+    0
+  );
+  const availableSeats =
+    selectedVehicleId === 'auto'
+      ? fleetMaxAvailable
+      : selectedVehicle
+      ? (selectedVehicle.availableSeats ?? selectedVehicle.capacity)
+      : 0;
+
+  useEffect(() => {
+    if (availableSeats > 0 && selectedSeats > availableSeats) {
+      setSelectedSeats(availableSeats);
+    }
+  }, [availableSeats, selectedSeats]);
+
   useEffect(() => {
     if (!isLoading && !user) { router.push('/login'); return; }
     if (user?.role === 'DRIVER') { router.push('/driver'); return; }
@@ -137,9 +155,6 @@ export default function PassengerPage() {
     (activeRequest as Record<string, string> | null)?.corridor ||
     activeRequest?.pool?.corridor ||
     selectedRoute.corridor;
-  const availableSeats =
-    manifest?.availableSeats ?? manifest?.seatsRemaining ??
-    Math.max(0, (manifest?.capacity ?? 3) - (manifest?.occupiedSeats ?? 0));
   const estimatedFareTotal = (parseFloat(selectedRoute.estFare) * selectedSeats).toFixed(2);
   const isUnmatched = activeRequest?.status === 'REQUESTED';
   const corridorColor = CORRIDOR_COLORS[selectedRoute.corridor] ?? 'var(--accent-primary)';
@@ -472,6 +487,10 @@ export default function PassengerPage() {
                     {fleet.map((v) => {
                       const isSel = selectedVehicleId === v.id;
                       const driverName = v.driver?.name || 'Driver';
+                      const occ = v.occupiedSeats ?? 0;
+                      const avail = v.availableSeats ?? Math.max(0, v.capacity - occ);
+                      const isFull = avail === 0;
+
                       return (
                         <div
                           key={v.id}
@@ -510,19 +529,26 @@ export default function PassengerPage() {
                                 </span>
                               </div>
                               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                {v.driver?.phone || 'Verified'} · Capacity: {v.capacity} Seats
+                                {v.activePool?.corridor
+                                  ? `Corridor: ${v.activePool.corridor.replace('_', ' ')}`
+                                  : 'Idle / Ready for any corridor'}
                               </div>
                             </div>
-                            <span style={{
-                              fontSize: 10,
-                              fontWeight: 700,
-                              color: 'var(--accent-green)',
-                              background: 'rgba(34, 197, 94, 0.1)',
-                              padding: '2px 8px',
-                              borderRadius: 100,
-                            }}>
-                              🟢 Online
-                            </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                              <span style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                color: isFull ? 'var(--accent-red)' : occ > 0 ? 'var(--accent-orange)' : 'var(--accent-green)',
+                                background: isFull ? 'rgba(239, 68, 68, 0.1)' : occ > 0 ? 'rgba(245, 158, 11, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+                                padding: '2px 8px',
+                                borderRadius: 100,
+                              }}>
+                                {isFull ? '🔴 FULL (3/3)' : occ > 0 ? `🟡 ${avail} Seat${avail !== 1 ? 's' : ''} Left` : `🟢 ${avail} Seats Free`}
+                              </span>
+                              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                                {occ}/{v.capacity} Seats Occupied
+                              </span>
+                            </div>
                           </div>
                         </div>
                       );
@@ -536,24 +562,37 @@ export default function PassengerPage() {
                     <label style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>
                       Seats to Reserve
                     </label>
-                    <span style={{ fontSize: 12, color: availableSeats > 0 && availableSeats < selectedSeats ? 'var(--accent-red)' : 'var(--text-secondary)' }}>
-                      {availableSeats > 0 ? `${availableSeats} seat${availableSeats !== 1 ? 's' : ''} available on Bullet` : 'Bullet at full capacity'}
+                    <span style={{ fontSize: 12, color: availableSeats === 0 || selectedSeats > availableSeats ? 'var(--accent-red)' : 'var(--text-secondary)' }}>
+                      {selectedVehicleId === 'auto'
+                        ? availableSeats > 0
+                          ? `${availableSeats} max seat${availableSeats !== 1 ? 's' : ''} available in fleet`
+                          : 'Fleet at full capacity'
+                        : availableSeats > 0
+                        ? `${availableSeats} seat${availableSeats !== 1 ? 's' : ''} available on ${selectedVehicle?.model || 'EV'} (${selectedVehicle?.driver?.name || 'Driver'})`
+                        : `${selectedVehicle?.model || 'EV'} (${selectedVehicle?.driver?.name || 'Driver'}) is full`}
                     </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                     {[1, 2, 3].map((num) => {
                       const isSel = selectedSeats === num;
-                      const exceeded = availableSeats > 0 && num > availableSeats;
+                      const exceeded = availableSeats > 0 ? num > availableSeats : true;
                       return (
                         <button
-                          key={num} type="button" onClick={() => setSelectedSeats(num)} disabled={exceeded}
+                          key={num}
+                          type="button"
+                          onClick={() => setSelectedSeats(num)}
+                          disabled={exceeded}
                           style={{
-                            padding: '12px 10px', borderRadius: 'var(--radius-sm)',
+                            padding: '12px 10px',
+                            borderRadius: 'var(--radius-sm)',
                             border: isSel ? `1px solid ${corridorColor}` : '1px solid var(--border)',
                             background: isSel ? `${corridorColor}1a` : 'var(--bg-base)',
                             color: isSel ? corridorColor : exceeded ? 'var(--text-muted)' : 'var(--text-primary)',
-                            fontWeight: 700, fontSize: 13, cursor: exceeded ? 'not-allowed' : 'pointer',
-                            opacity: exceeded ? 0.35 : 1, transition: 'all 0.2s',
+                            fontWeight: 700,
+                            fontSize: 13,
+                            cursor: exceeded ? 'not-allowed' : 'pointer',
+                            opacity: exceeded ? 0.35 : 1,
+                            transition: 'all 0.2s',
                           }}
                         >
                           {num} {num === 1 ? 'Seat' : 'Seats'}
@@ -606,7 +645,7 @@ export default function PassengerPage() {
             </div>
           )}
 
-          {/* Fleet Seat Occupancy — always visible */}
+          {/* Fleet Seat Occupancy — all EVs in fleet */}
           <div className="card">
             <div className="card-header">
               <div className="card-title">
@@ -614,10 +653,97 @@ export default function PassengerPage() {
                   <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
                   <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
                 </svg>
-                Fleet Seat Occupancy
+                Fleet Seat Occupancy ({fleet.length} EVs Online)
               </div>
             </div>
-            <div className="card-body"><SeatMeter manifest={manifest} /></div>
+            <div className="card-body">
+              {fleet.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)', fontSize: 13 }}>
+                  No online vehicles detected.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {fleet.map((v) => {
+                    const occ = v.occupiedSeats ?? 0;
+                    const avail = v.availableSeats ?? Math.max(0, v.capacity - occ);
+                    const isFull = avail === 0;
+                    const driverName = v.driver?.name || 'Driver';
+
+                    return (
+                      <div
+                        key={v.id}
+                        style={{
+                          background: 'var(--bg-base)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: 14,
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: '50%',
+                                background: 'linear-gradient(135deg, var(--accent-secondary), #6366f1)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 700,
+                                color: '#fff',
+                                fontSize: 12,
+                              }}
+                            >
+                              {driverName.charAt(0)}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                {v.model} EV — {driverName}
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                {v.activePool?.corridor
+                                  ? `Active Corridor: ${v.activePool.corridor.replace('_', ' ')}`
+                                  : 'Idle / Ready for any corridor'}
+                              </div>
+                            </div>
+                          </div>
+                          <span
+                            className={`badge ${isFull ? 'badge-danger' : occ > 0 ? 'badge-matched' : 'badge-completed'}`}
+                            style={{ fontSize: 10 }}
+                          >
+                            {isFull ? '🔴 Full (3/3)' : occ > 0 ? `🟡 ${avail} Seat${avail !== 1 ? 's' : ''} Left` : '🟢 Empty (3/3 Free)'}
+                          </span>
+                        </div>
+
+                        {/* Seat Visual Blocks */}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          {Array.from({ length: v.capacity }).map((_, i) => {
+                            const pass = v.activePool?.passengers?.[i];
+                            const isOccupied = i < occ;
+                            return (
+                              <div
+                                key={i}
+                                className={`seat-block ${isOccupied ? 'occupied' : 'empty'}`}
+                                style={{ flex: 1, padding: '10px 8px' }}
+                                title={pass ? `${pass.passengerName} (${pass.pickupZone} → ${pass.dropoffZone})` : `Seat ${i + 1} Available`}
+                              >
+                                <span style={{ fontSize: 13, fontWeight: 700, color: isOccupied ? 'var(--accent-primary)' : 'var(--text-muted)' }}>
+                                  {isOccupied ? (pass?.passengerName ? pass.passengerName.charAt(0) : 'P') : `S${i + 1}`}
+                                </span>
+                                <span className="seat-label" style={{ fontSize: 10 }}>
+                                  {isOccupied ? (pass?.passengerName?.split(' ')[0] || 'Occupied') : 'Available'}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
