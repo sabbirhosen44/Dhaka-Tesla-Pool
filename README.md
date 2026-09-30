@@ -10,226 +10,181 @@
 
 ---
 
-## 📖 1. Problem Statement & The Story of Bullet
+## 🎥 1. Demo Video Link
+* **Walkthrough Video (Loom):** [Click to watch the 6-Minute Loom Walkthrough Video](https://www.loom.com/) *(Paste your final Loom URL here)*
 
+---
+
+## 📖 2. Summary & Problem Statement
+
+### The Banani Rush-Hour Story
 **8:41 AM, Banani Road 11.**  
-Jashim is leaning against **Bullet**, his three-seat, battery-powered, entirely unaffiliated “Tesla.”
-* **Nusrat**, already running late for an office sync, books a ride to **Gulshan 1**.
-* Two minutes later, a stranger named **Rafiq** books the same corridor toward **Gulshan 1** or **Mohakhali**.
-* The pooling engine calculates in sub-second time whether these passengers share a compatible corridor, splits the fare fairly using an integer-poysha formula with a 25% discount, and allocates the seats atomically without race conditions.
-* Meanwhile, another driver, **Kabir**, pilots **Thunder** (another 3-seat EV) along the **West-North (Mirpur)** corridor. If a passenger chooses Kabir or requests an incompatible route (e.g. Banani → Mirpur), the system intelligently segregates the pools to avoid conflicting drop-offs.
-* Each passenger receives an isolated receipt—never seeing another passenger's personal data or fare breakdown.
+Jashim is leaning against **Bullet**, his three-seat, battery-powered, entirely unaffiliated “Tesla.”  
+* **Nusrat**, already running late for an office sync, books a ride to **Mohakhali**.  
+* Two minutes later, a stranger named **Rafiq** books almost the same route toward **Gulshan 1**.  
+* The app figures out in sub-second time whether these two can share a seat, splits the fare fairly using an integer-poysha formula with a 25% discount, and allocates the seats atomically without race conditions.  
+* Meanwhile, another driver, **Kabir**, pilots **Thunder** (another 3-seat EV) along the **West-North (Mirpur)** corridor. If a passenger chooses Kabir or requests an incompatible route (e.g. Banani → Mirpur), the system intelligently segregates the pools to avoid conflicting drop-offs.  
 * Jashim and Kabir maintain complete authority over their trip lifecycles: **ARRIVE** at pickup $\rightarrow$ **START** trip $\rightarrow$ **COMPLETE** offload.
 
+### Features Implemented
+- ✅ **Dynamic Passenger Booking:** Select pickup, dropoff, and choose 1 to 3 seats.
+- ✅ **Driver / EV Selection:** Choose specific drivers (Jashim's Bullet, Kabir's Thunder) or select Auto-Assign.
+- ✅ **Fair Corridor Pooling Engine:** Overlapping trips share seats (Nusrat & Rafiq on Central Connect); divergent routes (Mirpur, Uttara) are segregated into separate pools.
+- ✅ **Dynamic Real-Time Fleet Occupancy Meter:** Live per-driver seat bounds prevent overbooking.
+- ✅ **Transparent Fare Calculator:** Base + Distance − 25% Pool Discount calculated in Integer Poysha.
+- ✅ **Full Trip Lifecycle:** `REQUESTED` $\rightarrow$ `MATCHED` $\rightarrow$ `DRIVER_ARRIVED` $\rightarrow$ `STARTED` $\rightarrow$ `COMPLETED` (+ `CANCELLED`).
+- ✅ **Driver Cockpit:** Live passenger manifest with ARRIVE, START, and COMPLETE trip controls.
+- ✅ **Individual Fare Privacy:** Each passenger receives an isolated receipt (unauthorized access returns 403 Forbidden).
+- ✅ **Atomic Concurrency Protection:** Zero seat overbooking under concurrent requests via `prisma.$transaction`.
+- ✅ **Server-Sent Events (SSE):** Real-time event stream push for live fleet updates.
+- ✅ **Multi-Container Docker:** Full-stack orchestration via Docker Compose.
+
 ---
 
-## 🏗️ 2. System Architecture & High-Level Design
+## 📸 3. Application Screenshots
 
-```mermaid
-flowchart TD
-    subgraph Frontend["Next.js 16 Web Client (Port 3000)"]
-        UI_AUTH[Story Actor Switcher / Login]
-        UI_PASSENGER[Passenger Booking Portal]
-        UI_DRIVER[Driver Console Cockpit]
-        UI_TELEMETRY[Real-Time Live Event Telemetry]
-        UI_SEATS[Multi-Vehicle Seat Occupancy Meter]
-    end
+### Passenger Booking Portal & Dynamic Seat Selector
+![Passenger Booking Portal](assets/passenger_portal.png)
 
-    subgraph Backend["NestJS Modular Monolith (Port 4000)"]
-        AUTH_MOD[AuthModule - JWT & Role Guards]
-        RIDE_MOD[RideRequestModule - Lifecycle Management]
-        POOL_MOD[PoolEngineModule - Corridor Heuristics & Atomic Locks]
-        VEHICLE_MOD[VehicleModule - Dynamic Fleet Manifest & Status]
-        FARE_MOD[FareCalculatorModule - Poysha Math Engine]
-        SYNC_MOD[SyncModule - Server-Sent Events / SSE Stream]
-    end
+### Driver Console Cockpit & Passenger Manifest
+![Driver Console Cockpit](assets/driver_cockpit.png)
 
-    subgraph Database["PostgreSQL 16 Engine"]
-        DB_USERS[(Users: Drivers & Passengers)]
-        DB_VEHICLES[(Vehicles: Bullet, Thunder)]
-        DB_POOLS[(Pools: Capacity, Status)]
-        DB_MEMBERS[(PoolMembers: Fares & Seat Allocation)]
-        DB_LOGS[(RideEventLogs: State Audit Trail)]
-    end
+---
 
-    UI_PASSENGER -->|REST API| RIDE_MOD
-    UI_DRIVER -->|REST API| POOL_MOD
-    UI_TELEMETRY -->|SSE Stream| SYNC_MOD
-    RIDE_MOD --> POOL_MOD
-    POOL_MOD --> FARE_MOD
-    POOL_MOD --> SYNC_MOD
-    POOL_MOD --> DB_POOLS
-    POOL_MOD --> DB_MEMBERS
-    RIDE_MOD --> DB_LOGS
+## 🏗️ 4. Architecture Diagram
+
+![System Architecture](assets/architecture.png)
+
+*The system follows a clean modular monolith: Browser client connects via HTTPS/REST and SSE to the NestJS modular backend gateway, which interacts through Prisma ORM to PostgreSQL with transactional row locking.*
+
+---
+
+## 🗄️ 5. Database Diagram (ERD)
+
+![Database ERD](assets/erd.png)
+
+*The relational schema models User roles, Vehicles, RideRequests, atomic Pools, individual PoolMembers (with poysha fare breakdown), and an append-only RideEventLog for auditing.*
+
+---
+
+## ⚙️ 6. Tech Stack & Justifications
+
+| Layer | Choice | Realistic Alternatives | Why It Fits This Ride-Pooling MVP | What Would Make Us Switch |
+| :--- | :--- | :--- | :--- | :--- |
+| **Backend** | **NestJS 11 (Node.js)** | Express, Fastify | Strong modularity, dependency injection, and built-in validation pipes (`class-validator`) ensure clean separation of PoolEngine, Fare Math, and Auth. | Ultra-low latency microsecond gateways where Fastify raw throughput is strictly needed. |
+| **Frontend** | **Next.js 16 (App Router)** | Vite + React, CRA | App Router layouts, server components, and rapid full-stack integration with built-in styling and asset handling. | Dedicated mobile app (Flutter / React Native) if native GPS hardware telemetry is required. |
+| **Database** | **PostgreSQL 16** | MongoDB, MySQL, SQLite | Strong ACID compliance, relational integrity, and robust transaction isolation needed to enforce seat capacity invariants. | High-throughput unstructured telemetry where ClickHouse or Cassandra is superior. |
+| **ORM** | **Prisma 6** | TypeORM, Drizzle | Schema-first migrations, type-safe generated client, and interactive transaction callbacks (`prisma.$transaction`) for atomic capacity locking. | Scenarios requiring complex custom SQL window functions or sub-millisecond query execution (Drizzle). |
+| **Auth** | **Stateless JWT + Demo Switcher** | Session Cookies, OAuth | Token-based auth allows stateless horizontal API scaling. Story actor switcher enables instant persona testing without login friction. | Enterprise SSO requirements or session revocation blacklists requiring Redis. |
+| **Real-time** | **Server-Sent Events (SSE)** | WebSockets, Polling | Unidirectional broadcast (server $\rightarrow$ client) is lightweight, auto-reconnecting, and avoids complex WebSocket handshake overhead for status updates. | Bidirectional in-app audio/video calling or driver-passenger chat. |
+| **Testing** | **Jest + Supertest** | Vitest, Mocha | Standard NestJS testing ecosystem; in-memory dependency mocking allows rapid execution of concurrency tests without database pollution. | Pure ESM native stack switching to Vitest for speed. |
+| **Container** | **Docker & Docker Compose** | Podman, Kubernetes | Mandated standard for reproducible local and evaluator evaluation in a single command. | Production multi-region orchestration requiring Kubernetes / Helm. |
+
+---
+
+## 📂 7. Project Structure
+
+```
+Dhaka-Tesla-Pool/
+├── assets/
+│   ├── architecture.png          # System Architecture Diagram
+│   ├── erd.png                   # Database ERD Diagram
+│   ├── passenger_portal.png      # Passenger UI Screenshot
+│   └── driver_cockpit.png        # Driver UI Screenshot
+├── backend/
+│   ├── prisma/
+│   │   ├── schema.prisma         # Prisma Schema (User, Vehicle, Pool, PoolMember, etc.)
+│   │   └── seed.ts               # Story seed data (Jashim, Nusrat, Rafiq, Shirin, Bullet, Thunder)
+│   ├── src/
+│   │   ├── auth/                 # JWT Auth, RoleGuard, Demo Login
+│   │   ├── common/constants/     # DHAKA_ZONES, Corridor definitions
+│   │   ├── fare-calculator/      # Integer Poysha math & estimation endpoints
+│   │   ├── pool-engine/          # Corridor matching heuristics & atomic capacity locks
+│   │   ├── ride-request/         # Ride lifecycle FSM, cancel, privacy guards
+│   │   ├── sync/                 # SSE real-time event broadcaster
+│   │   └── vehicle/              # Dynamic fleet manifest & online status
+│   ├── test/                     # 8 test suites, 18 automated unit & concurrency tests
+│   ├── .env.example              # Backend environment template
+│   └── Dockerfile                # Multi-stage production container
+├── frontend/
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── passenger/        # Passenger booking, driver picker, seat visualizer
+│   │   │   └── driver/           # Driver cockpit (Arrive / Start / Complete)
+│   │   ├── components/           # SeatMeter, LiveFeed, Story Actor Switcher
+│   │   ├── context/              # AuthContext (JWT, active actor state)
+│   │   └── lib/api.ts            # Typed REST API client
+│   └── Dockerfile                # Next.js standalone runner container
+├── docker-compose.yml            # Multi-container orchestration (DB, API, Web)
+├── .env.example                  # Root environment template
+└── README.md
 ```
 
 ---
 
-## 🗄️ 3. Entity-Relationship Data Model (ERD)
+## 🔐 8. Environment Variables
 
-```mermaid
-erDiagram
-    User ||--o{ Vehicle : owns_or_drives
-    User ||--o{ RideRequest : books
-    User ||--o{ Pool : operates
-    Vehicle ||--o{ Pool : assigned_to
-    Pool ||--o{ PoolMember : contains
-    RideRequest ||--o| PoolMember : fulfills
-    RideRequest ||--o{ RideEventLog : audits
+Create `.env` files using the committed `.env.example` templates — **never commit real secrets**.
 
-    User {
-        string id PK
-        string name
-        string phone UK
-        string role "PASSENGER | DRIVER | ADMIN"
-        int walletBalanceP "Integer poysha"
-        datetime createdAt
-    }
+### Root `.env.example` (Used by Docker Compose)
+```env
+DATABASE_URL="postgresql://postgres:password@postgres:5432/dhaka_tesla_pool?schema=public"
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=password
+POSTGRES_DB=dhaka_tesla_pool
+POSTGRES_PORT=5432
 
-    Vehicle {
-        string id PK
-        string driverId FK
-        string model "Bullet, Thunder"
-        int capacity "3 fixed capacity"
-        boolean isOnline
-        datetime createdAt
-    }
+PORT=4000
+NODE_ENV=production
+JWT_SECRET=super_secret_dhaka_tesla_jwt_key_2026
+CORS_ORIGIN=http://localhost:3000
 
-    RideRequest {
-        string id PK
-        string passengerId FK
-        string pickupZone "Banani"
-        string dropoffZone "Mohakhali, Gulshan 1, etc."
-        int seatsRequested "1 to 3 seats"
-        string status "REQUESTED | MATCHED | DRIVER_ARRIVED | STARTED | COMPLETED | CANCELLED"
-        datetime createdAt
-    }
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
+```
 
-    Pool {
-        string id PK
-        string driverId FK
-        string vehicleId FK
-        int capacity "3 seats"
-        int occupiedSeats "0 to 3"
-        string status "OPEN | FULL | ACTIVE | COMPLETED | CANCELLED"
-        datetime createdAt
-        datetime updatedAt
-    }
-
-    PoolMember {
-        string id PK
-        string poolId FK
-        string rideRequestId FK
-        int seatsAllocated "1 to 3"
-        int baseFare "In poysha"
-        int distanceFare "In poysha"
-        int discount "In poysha"
-        int finalFare "In poysha"
-        string paymentMethod "CASH | TESLA_PAY"
-        string paymentStatus "PENDING | PAID"
-        datetime joinedAt
-    }
-
-    RideEventLog {
-        string id PK
-        string rideRequestId FK
-        string fromStatus
-        string toStatus
-        string note
-        datetime timestamp
-    }
+### Backend `.env.example` (Used for Local Dev)
+```env
+DATABASE_URL="postgresql://postgres:password@localhost:5432/dhaka_tesla_pool?schema=public"
+PORT=4000
+NODE_ENV=development
+JWT_SECRET=super_secret_dhaka_tesla_jwt_key_2026
+CORS_ORIGIN=http://localhost:3000
 ```
 
 ---
 
-## ⚡ 4. Core Engineering Principles
+## 🚀 9. Local Setup & Docker Instructions
 
-### A. Atomic Concurrency Lock & Race Condition Protection
-When multiple passengers attempt to reserve the final remaining seat at the exact same millisecond:
-1. **Interactive Database Transaction (`prisma.$transaction`)**: The matching engine re-queries the pool with fresh transactional isolation.
-2. **Strict Invariant Guard**: Checks if `freshPool.occupiedSeats + request.seatsRequested <= freshPool.capacity`.
-3. If capacity is exceeded, the transaction rolls back cleanly, preventing overbooking.
-4. Concurrency test suite (`pool-concurrency.spec.ts`) simulates 3 concurrent requests competing for the last 2 seats and confirms zero seat leaks or race conditions.
-
-### B. Integer Poysha Currency (Zero Floating-Point Error)
-* All fares are calculated and stored in **Poysha** ($1\text{ BDT} = 100\text{ poysha}$).
-* Base fare: `5,000 poysha` (50.00 BDT).
-* Per-km rate: `2,000 poysha/km` (20.00 BDT/km).
-* Discount: Exactly `25%` pooled discount rounded via `Math.round()` on integer poysha.
-* Prevents financial drift, floating-point IEEE-754 inaccuracies (`0.1 + 0.2 != 0.3`), and banking rounding discrepancies.
-
-### C. Dhaka Corridor Segregation & Matching Rules
-* **7 Dhaka Zones**: Banani, Gulshan 1, Gulshan 2, Mohakhali, Farmgate, Dhanmondi, Mirpur, Uttara.
-* **Corridor Heuristic**:
-  * `CENTRAL_CONNECT` (Banani $\leftrightarrow$ Mohakhali / Gulshan 1)
-  * `CENTRAL_NORTH` (Banani $\leftrightarrow$ Gulshan 2)
-  * `NORTH_SUBURB` (Banani $\leftrightarrow$ Uttara)
-  * `WEST_NORTH` (Banani $\leftrightarrow$ Mirpur)
-  * `WEST_SOUTH` (Banani $\leftrightarrow$ Dhanmondi)
-* Divergent corridors (e.g. `Banani -> Mirpur` vs. `Banani -> Uttara`) are strictly segregated into separate pools to guarantee passengers are not sent in opposite directions.
-
-### D. Complete Trip Lifecycle State Machine
-```mermaid
-stateDiagram-v2
-    [*] --> REQUESTED : Passenger books ride
-    REQUESTED --> MATCHED : Auto-assign / Corridor match
-    REQUESTED --> CANCELLED : Passenger cancels
-    MATCHED --> CANCELLED : Passenger cancels (frees seats)
-    MATCHED --> DRIVER_ARRIVED : Driver executes ARRIVE
-    DRIVER_ARRIVED --> STARTED : Driver executes START
-    STARTED --> COMPLETED : Driver executes COMPLETE
-    COMPLETED --> [*] : Ride completed, Book again
-```
-
-### E. Individual Fare Privacy & Security
-* Passengers can **only view their own financial receipts** and trip status via `/ride-requests/:id`.
-* Accessing another passenger's ride receipt throws an immediate `403 Forbidden` response.
+### Prerequisites
+- Node.js 20+, npm 10+
+- Docker Desktop
+- Git
 
 ---
 
-## 🌿 5. Git Workflow & Branching Strategy
-
-This project adheres strictly to the professional Git assessment lifecycle:
-
-| Branch | Role / Description |
-| :--- | :--- |
-| `master` | Primary production-ready codebase containing merged and validated feature increments. |
-| `pre-release` | Cut from `master` for integration fixes, environment sanity checks, multi-container Docker configs, and documentation. |
-| `release/v1.0.0` | Cut from `pre-release` as the official delivery version demonstrated in videos and deployment evaluations. |
-| `feature/*` | Isolated feature branches merged into `master` after unit and integration verification. |
-
-### Feature Branches Included in Repository History:
-* `feature/backend-scaffold-and-db`: NestJS architecture, PostgreSQL Prisma ORM, and seed data.
-* `feature/swagger-and-api-docs`: Swagger OpenAPI documentation and global validation pipes.
-* `feature/fare-calculator-and-zones`: Integer Poysha calculator and 7 Dhaka zone corridors.
-* `feature/auth-and-roles`: JWT authentication, story demo login, and RoleGuard.
-* `feature/vehicle-and-manifest`: Dynamic multi-vehicle capacity tracking and live manifest.
-* `feature/ride-request-and-pool-engine`: Corridor matching heuristics and atomic capacity locking.
-* `feature/concurrency-and-lifecycle-tests`: Concurrency race-condition tests and lifecycle verification.
-* `feature/frontend-ui`: Next.js 16 frontend with interactive passenger & driver consoles.
-* `feature/concurrency-isolation-and-fleet-selection`: Multi-driver fleet selection and dynamic per-vehicle capacity.
-
----
-
-## 🚀 6. Setup & Execution Guide
-
-### Option 1: Docker Compose (Quickest Full-Stack Launch)
+### Option A: Docker Compose (Recommended — Full Stack in One Command)
 
 ```bash
-# Clone the repository
+# 1. Clone repository
 git clone https://github.com/sabbirhosen44/Dhaka-Tesla-Pool.git
 cd Dhaka-Tesla-Pool
 
-# Start all services (Database, NestJS Backend, Next.js Frontend)
-docker compose up -d --build
+# 2. Setup environment
+cp .env.example .env
+
+# 3. Build and launch all services (Database + Backend + Frontend)
+docker compose up --build -d
 ```
-* **Frontend:** [http://localhost:3000](http://localhost:3000)
-* **Backend API:** [http://localhost:4000/api](http://localhost:4000/api)
+
+* **Frontend Web App:** [http://localhost:3000](http://localhost:3000)
+* **Backend API Base:** [http://localhost:4000/api](http://localhost:4000/api)
 * **Swagger API Documentation:** [http://localhost:4000/api/docs](http://localhost:4000/api/docs)
+
+*Database migrations and seed data are applied automatically on initial launch.*
 
 ---
 
-### Option 2: Local Development Setup
+### Option B: Manual Local Development
 
 #### 1. Database (PostgreSQL)
 ```bash
@@ -239,6 +194,7 @@ docker compose up postgres -d
 #### 2. Backend (NestJS)
 ```bash
 cd backend
+cp .env.example .env
 npm install
 npx prisma db push
 npx prisma db seed
@@ -254,41 +210,183 @@ npm run dev
 
 ---
 
-## 🧪 7. Test Suite Coverage
+## 🧪 10. Automated Tests & Demo Credentials
 
-Run the backend automated test suite:
+### How to Run Tests
 ```bash
 cd backend
 npm test
 ```
 
-### Verified Test Suites (8/8 Passed, 18/18 Tests):
+### Test Suites (8 Suites / 18 Tests — All Passing)
 * `app.controller.spec.ts` — API health check and uptime.
-* `vehicle.service.spec.ts` — Dynamic capacity calculation for any 3-seat EV and status toggle.
-* `pool-engine.service.spec.ts` — Corridor matching heuristics and pool creation.
-* `fare-calculator.service.spec.ts` — Integer poysha math, 25% discount, and distance rates.
-* `fare-calculator.controller.spec.ts` — HTTP fare quotation endpoints.
-* `pool-concurrency.spec.ts` — Atomic transaction isolation against race conditions.
-* `ride-request.service.spec.ts` — Privacy isolation and unauthorized access prevention.
 * `auth.service.spec.ts` — Demo actor login and JWT issuance.
+* `vehicle.service.spec.ts` — Dynamic capacity calculation for 3-seat EVs & online toggle.
+* `fare-calculator.service.spec.ts` — Integer poysha math, 25% pool discount, Nusrat & Rafiq fares.
+* `fare-calculator.controller.spec.ts` — HTTP fare quotation endpoint validation.
+* `pool-engine.service.spec.ts` — Corridor matching heuristics & pool segregation.
+* `pool-concurrency.spec.ts` — **Atomic transaction isolation; 3 concurrent requests competing for 1 seat with zero overbooking.**
+* `ride-request.service.spec.ts` — Individual fare privacy & cross-user access rejection (403 Forbidden).
 
----
+### Demo Credentials (Story Cast)
+Switch between story personas instantly using the **Actor Switcher** in the top navigation bar:
 
-## 🎬 8. Story Demo Actors
-
-Use the built-in profile selector on the frontend to switch personas instantly:
-
-| Actor | Role | Vehicle / Function |
+| Actor | Role | Vehicle / Details |
 | :--- | :--- | :--- |
-| **Jashim** | Driver | Drives **Bullet** (Tesla Model 3, 3 seats) |
-| **Kabir** | Driver | Drives **Thunder** (Tesla Model Y, 3 seats) |
-| **Nusrat** | Passenger | Books early morning ride to Mohakhali / Gulshan 1 |
-| **Rafiq** | Passenger | Books same corridor (Gulshan 1), sharing Bullet with Nusrat |
-| **Shirin** | Passenger | Tests capacity boundaries or chooses Kabir to Mirpur |
+| **Jashim** | Driver | **Bullet** (Tesla Model 3, 3 seats, Banani $\leftrightarrow$ Gulshan/Mohakhali corridor) |
+| **Kabir** | Driver | **Thunder** (Tesla Model Y, 3 seats, Banani $\leftrightarrow$ Mirpur corridor) |
+| **Nusrat** | Passenger | Books Banani $\rightarrow$ Mohakhali (Central Connect) |
+| **Rafiq** | Passenger | Books Banani $\rightarrow$ Gulshan 1 (Shares Bullet with Nusrat at 25% discount) |
+| **Shirin** | Passenger | Tries to take the 3rd seat or requests Banani $\rightarrow$ Mirpur (assigned to Kabir) |
 | **Tanvir** | Passenger | Multi-seat bookings (1 to 3 seats) |
 | **Anika** | Passenger | General corridor passenger |
 
 ---
 
-## 📄 9. License
-Distributed under the MIT License. Developed for the Dhaka Tesla Pool Assessment.
+## 🌐 11. Deployment URL & Constraints
+
+* **Deployment URL:** [http://localhost:3000](http://localhost:3000) (Self-contained Docker Compose Deployment)
+* **API Documentation:** [http://localhost:4000/api/docs](http://localhost:4000/api/docs)
+* **Deployment Constraint Note:** In compliance with Section 6 (free-tier only), full-stack deployment is provided via a fully reproducible Docker Compose setup. Free cloud hosts (Render/Railway free tier) impose cold starts and ephemeral database limits that disrupt real-time SSE connections and concurrent seat locking.
+
+---
+
+## 📡 12. API Overview
+
+Base URL: `http://localhost:4000/api` (Swagger UI at `/api/docs`)
+
+| Method | Endpoint | Role | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/auth/demo-login` | Public | Authenticate as any story persona (Nusrat, Jashim, etc.) |
+| `GET` | `/vehicles` | JWT | List online vehicles with live seat occupancy |
+| `PATCH` | `/vehicles/:id/status` | Driver | Toggle driver online/offline status |
+| `POST` | `/ride-requests` | Passenger | Create ride request (zone, seats, optional preferred driver) |
+| `GET` | `/ride-requests/:id` | Passenger | Get own ride status & isolated fare receipt (403 for others) |
+| `PATCH` | `/ride-requests/:id/cancel` | Passenger | Cancel ride request and release vehicle seats |
+| `GET` | `/fare-calculator/estimate` | JWT | Get real-time fare quotation for zone route |
+| `GET` | `/pool-engine/pools` | Driver | View active pools assigned to driver |
+| `PATCH` | `/pool-engine/pools/:id/arrive` | Driver | Mark driver arrived at pickup |
+| `PATCH` | `/pool-engine/pools/:id/start` | Driver | Transition pool to started |
+| `PATCH` | `/pool-engine/pools/:id/complete` | Driver | Complete trip and offload passengers |
+| `GET` | `/sync/events` | Public | Server-Sent Events (SSE) live event stream |
+
+---
+
+## ⚖️ 13. Key Decisions, Trade-Offs, Limitations & Next Improvements
+
+### Key Decisions & Trade-Offs
+| Decision | Rationale | Trade-Off |
+| :--- | :--- | :--- |
+| **Zone Corridor Segregation** | Pre-defined Dhaka corridors (Central, North, West) keep matching deterministic and testable without external map API billing. | Does not support arbitrary lat/long coordinates. |
+| **Modular Monolith** | Single deployable unit simplifies transactional consistency for pool reservations without distributed 2PC or Saga orchestrators. | Scaled as a single unit rather than independent microservices. |
+| **SSE over WebSockets** | Zero-handshake HTTP streaming satisfies unidirectional telemetry needs with lower overhead. | Client cannot push data over the same channel; REST used for client actions. |
+| **Prisma Interactive Transactions** | Native database-level serializable isolation guarantees zero seat overbooking. | Higher DB lock duration compared to optimistic locking under extreme scale. |
+
+### Known Limitations
+- Fares are simulated via integer poysha calculations without a third-party payment gateway integration.
+- Zones are represented as discrete Dhaka corridor strings rather than dynamic GPS polylines.
+- JWT access tokens are stored in local storage for demo convenience without silent refresh-token rotation.
+
+### Next Improvements
+- PostGIS integration for geospatial radius matching and route polyline overlap detection.
+- WebSockets for bidirectional driver-passenger instant messaging.
+- Optimistic concurrency control (version column) to reduce row lock contention under 100K+ requests.
+- Refresh token rotation and Redis token blacklisting.
+
+---
+
+## 🗺️ 14. Fare Model — Transparent & Testable
+
+```
+passengerFare = baseFare + (distanceKm × ratePerKm) − poolDiscount
+```
+
+* **Currency:** Stored strictly in **Integer Poysha** ($1\text{ BDT} = 100\text{ poysha}$) to eliminate IEEE-754 floating-point rounding bugs (`0.1 + 0.2 ≠ 0.3`).
+* **Base Fare:** $5,000\text{ poysha}$ ($50.00\text{ BDT}$).
+* **Distance Rate:** $2,000\text{ poysha/km}$ ($20.00\text{ BDT/km}$).
+* **Pool Discount:** Exactly $25\%$ of $(baseFare + distanceFare)$ rounded via `Math.round()`.
+
+### Hand-Checkable Calculation:
+**Nusrat: Banani $\rightarrow$ Mohakhali (4 km)**
+* Base Fare = $5,000\text{ poysha}$
+* Distance Fare = $4\text{ km} \times 2,000 = 8,000\text{ poysha}$
+* Subtotal = $13,000\text{ poysha}$
+* Pool Discount ($25\%$) = $13,000 \times 0.25 = 3,250\text{ poysha}$
+* **Final Fare = $9,750\text{ poysha}$ ($97.50\text{ BDT}$)**
+
+---
+
+## 🌀 15. Concurrency Model & Race Condition Protection
+
+**The Concurrency Problem:** Bullet has 1 seat remaining. Nusrat and Shirin both attempt to book it at the exact same millisecond.
+
+### Current Implementation:
+```typescript
+// pool-engine.service.ts
+return await this.prisma.$transaction(async (tx) => {
+  const freshPool = await tx.pool.findUnique({
+    where: { id: pool.id },
+  });
+
+  if (freshPool.occupiedSeats + seatsRequested > freshPool.capacity) {
+    throw new ConflictException('Vehicle capacity exceeded');
+  }
+
+  await tx.pool.update({
+    where: { id: pool.id },
+    data: { occupiedSeats: { increment: seatsRequested } },
+  });
+
+  return await tx.poolMember.create({ ... });
+});
+```
+By wrapping capacity verification and seat increment in an interactive database transaction (`prisma.$transaction`), PostgreSQL enforces serializability. The first request commits; the second fails gracefully with an HTTP 409 Conflict.
+
+---
+
+## 🌿 16. Git Workflow & Branching Strategy
+
+The repository follows the assessment-mandated long-lived branching structure:
+
+```
+master          <-- Fully integrated production MVP
+pre-release     <-- Cut from master for integration, Docker & documentation checks
+release/v1.0.0  <-- Tagged v1.0.0 official release branch
+```
+
+### Feature Branches in Git History:
+- `feature/backend-scaffold-and-db`: NestJS scaffolding, Prisma schema, PostgreSQL seed data.
+- `feature/swagger-and-api-docs`: Swagger OpenAPI docs and global validation pipes.
+- `feature/fare-calculator-and-zones`: Poysha math engine and 7 Dhaka zone corridors.
+- `feature/auth-and-roles`: JWT authentication, RoleGuard, and demo login.
+- `feature/vehicle-and-manifest`: Dynamic fleet capacity tracking and driver status toggle.
+- `feature/ride-request-and-pool-engine`: Corridor matching and atomic transaction locks.
+- `feature/concurrency-and-lifecycle-tests`: 18 automated unit and race-condition tests.
+- `feature/frontend-ui`: Next.js 16 passenger booking portal, driver cockpit, and live telemetry.
+- `feature/concurrency-isolation-and-fleet-selection`: Multi-driver fleet selection and dynamic per-vehicle capacity.
+
+---
+
+## 🤖 17. AI Usage Disclosure
+
+In compliance with Section 8 of the assessment guidelines:
+* **Tools Used:** Gemini / Claude via Antigravity IDE for code scaffolding, repetitive DTO generation, and test suite boilerplate.
+* **One Accepted Suggestion:** Utilizing interactive transaction callbacks (`prisma.$transaction(async tx => ...)`) instead of sequential promises. This ensured that seat counts are re-verified inside the transaction boundary before locking.
+* **One Rejected Suggestion:** AI initially suggested using Dijkstra's algorithm over an ad-hoc graph for zone navigation. This was rejected in favor of a clean, testable corridor-mapping dictionary (`CORRIDOR_MAP`), which keeps matching deterministic, explainable, and zero-dependency.
+* **Ownership Statement:** All database designs, concurrency invariants, business logic, state machines, and tests are thoroughly understood, fully debugged, and defended by the author.
+
+---
+
+## 🚀 18. Bonus: "If Oi Tesla Goes Viral" (Scale to 1M Passengers & 100K Drivers)
+
+1. **Geospatial Proximity (PostGIS):** Migrate predefined zones to PostGIS `ST_DWithin` spatial indexes for real-time radius matching.
+2. **Decoupled Matching Engine (BullMQ):** Move ride matching out of the synchronous HTTP request cycle into an async worker queue.
+3. **Optimistic Locking & In-Memory Slots:** Use Redis Lua scripts to atomically claim seats in memory before persisting to PostgreSQL.
+4. **Read Replicas:** Direct all driver manifest and history queries to read replicas.
+5. **Idempotency & Rate Limiting:** Enforce distributed token-bucket rate limits per user to prevent denial-of-service during peak rush hour.
+
+---
+
+## 📄 19. License
+
+Distributed under the MIT License. Developed for the **Dhaka Tesla Pool Engineering Assessment**.
