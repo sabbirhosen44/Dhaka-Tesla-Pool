@@ -48,7 +48,7 @@ async function main() {
       driverId: kabir.id,
       model: 'Thunder',
       capacity: 3,
-      isOnline: false,
+      isOnline: true,
     },
   });
 

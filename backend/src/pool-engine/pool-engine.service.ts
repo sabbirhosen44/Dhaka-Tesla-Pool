@@ -51,16 +51,17 @@ export class PoolEngineService {
         continue; 
       }
 
-      // Check corridor compatibility with existing passengers
-      const firstMember = pool.poolMembers[0];
-      const isCompatible = firstMember
-        ? areRoutesCompatible(
-            firstMember.rideRequest.pickupZone,
-            firstMember.rideRequest.dropoffZone,
+      // Check corridor compatibility with all existing passengers in the pool
+      const isCompatible =
+        pool.poolMembers.length === 0 ||
+        pool.poolMembers.every((member) =>
+          areRoutesCompatible(
+            member.rideRequest.pickupZone,
+            member.rideRequest.dropoffZone,
             request.pickupZone,
             request.dropoffZone,
-          )
-        : true;
+          ),
+        );
 
       if (!isCompatible) {
         continue;

@@ -9,7 +9,7 @@ describe('PoolEngineService', () => {
 
   const mockPrisma = {
     rideRequest: { findUnique: jest.fn(), update: jest.fn() },
-    pool: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
+    pool: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
     vehicle: { findFirst: jest.fn() },
     poolMember: { create: jest.fn() },
     $transaction: jest.fn().mockImplementation(async (callback) => callback(mockPrisma)),

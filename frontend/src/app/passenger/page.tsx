@@ -113,6 +113,11 @@ export default function PassengerPage() {
   }
 
   const pool = activeRequest?.pool as unknown as Record<string, unknown> | null;
+  const poolVehicle = pool?.vehicle as { model?: string } | undefined;
+  const poolDriver = pool?.driver as { name?: string; phone?: string } | undefined;
+  const vehicleName = poolVehicle?.model || 'Bullet';
+  const driverName = poolDriver?.name || 'Jashim';
+
   const rawFarePoysha = activeRequest?.fareInPoysha || (pool?.myFarePoysha as number) || 0;
   const displayFareBDT = rawFarePoysha > 0
     ? (rawFarePoysha / 100).toFixed(2)
@@ -236,8 +241,8 @@ export default function PassengerPage() {
                   <div className={`step ${AFTER_MATCH.includes(status) ? 'done' : ''}`}>
                     <div className="step-dot">{AFTER_MATCH.includes(status) ? <CheckIcon /> : <span style={{ fontSize: 11 }}>2</span>}</div>
                     <div className="step-content">
-                      <div className="step-title">Matched to Bullet EV</div>
-                      <div className="step-detail">Pool confirmed — seat(s) locked</div>
+                      <div className="step-title">Matched to {vehicleName} EV</div>
+                      <div className="step-detail">Driver {driverName} · Seat(s) locked</div>
                     </div>
                   </div>
 
@@ -246,7 +251,7 @@ export default function PassengerPage() {
                     <div className="step-content">
                       <div className="step-title">Driver En Route</div>
                       <div className="step-detail">
-                        {status === 'DRIVER_ARRIVED' ? 'Bullet EV at pickup — board now' : 'Heading to pickup point'}
+                        {status === 'DRIVER_ARRIVED' ? `${vehicleName} EV at pickup — board now` : `${driverName} heading to pickup`}
                       </div>
                     </div>
                   </div>
@@ -259,6 +264,48 @@ export default function PassengerPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Driver & Vehicle info card when matched */}
+                {AFTER_MATCH.includes(status) && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'rgba(56, 189, 248, 0.05)',
+                    border: '1px solid rgba(56, 189, 248, 0.15)',
+                    marginBottom: 20,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, var(--accent-primary), #0284c7)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        color: '#fff',
+                        fontSize: 16,
+                      }}>
+                        {driverName.charAt(0)}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                          Driver: {driverName}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          {vehicleName} EV · {poolDriver?.phone || 'Fleet Verified'}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="badge badge-matched" style={{ fontSize: 11 }}>
+                      Verified EV
+                    </span>
+                  </div>
+                )}
 
                 {/* ── Per-status action area ── */}
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20 }}>
@@ -393,12 +440,32 @@ export default function PassengerPage() {
                 </div>
 
                 {/* Fare isolation note */}
-                <div style={{ background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 16, marginBottom: 24 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 6 }}>
+                <div style={{ background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 14, marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 4 }}>
                     Fare Isolation Guarantee
                   </div>
-                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                     Your fare is calculated strictly on your personal distance. Adding fellow passengers never increases your rate.
+                  </div>
+                </div>
+
+                {/* Corridor Matching Rule Explainer */}
+                <div style={{
+                  background: 'rgba(56, 189, 248, 0.04)',
+                  border: '1px solid rgba(56, 189, 248, 0.2)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: 14,
+                  marginBottom: 20,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <span style={{ fontSize: 13 }}>🧭</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--accent-primary)' }}>
+                      Strict Corridor Matching Engine
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                    Pools only combine riders along the <strong>same directional corridor</strong> (e.g., Mohakhali &amp; Gulshan 1).
+                    Divergent trips (like <strong>Mirpur</strong> vs <strong>Uttara</strong>) are <u>never combined</u> into the same vehicle to eliminate cross-town detours.
                   </div>
                 </div>
 

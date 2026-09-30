@@ -19,7 +19,8 @@ export async function apiFetch<T>(
     throw new Error(error.message || `HTTP ${res.status}`);
   }
 
-  return res.json();
+  const text = await res.text();
+  return text ? (JSON.parse(text) as T) : (null as unknown as T);
 }
 
 // Auth
@@ -46,6 +47,9 @@ export const poolAction = (poolId: string, action: TripAction) =>
 
 // Vehicle
 export const getBullet = () => apiFetch<Vehicle>('/vehicles/bullet');
+export const getMyVehicle = () => apiFetch<Vehicle>('/vehicles/driver/me');
+export const getAllVehicles = (onlineOnly = false) =>
+  apiFetch<Vehicle[]>(`/vehicles${onlineOnly ? '?onlineOnly=true' : ''}`);
 export const getManifest = (vehicleId: string) =>
   apiFetch<VehicleManifest>(`/vehicles/${vehicleId}/manifest`);
 

@@ -6,9 +6,12 @@ import { getActors, Actor } from '@/lib/api';
 
 const ACTOR_BIOS: Record<string, string> = {
   Jashim: 'Tesla Model 3 "Bullet" driver — Banani corridors',
+  Kabir: 'Tesla Model Y "Thunder" driver — Fleet EV driver',
   Nusrat: 'Daily commuter — Banani to Mohakhali route',
   Rafiq: 'Shares corridor pool with Nusrat when available',
   Shirin: 'Active rider on the Gulshan 1 corridor',
+  Tanvir: 'Long-distance commuter — Banani to Uttara / Mirpur',
+  Anika: 'Tech worker commuting to Farmgate corridor',
 };
 
 export default function LoginPage() {
@@ -112,8 +115,6 @@ export default function LoginPage() {
               disabled={loading !== null}
               style={{
                 opacity: loading && loading !== actor.name ? 0.5 : 1,
-                background: 'none',
-                border: undefined,
               }}
             >
               {/* Loading overlay */}

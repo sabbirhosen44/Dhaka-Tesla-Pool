@@ -7,6 +7,7 @@ import {
   getActivePool,
   poolAction,
   getBullet,
+  getMyVehicle,
   getManifest,
   Pool,
   Vehicle,
@@ -44,10 +45,10 @@ export default function DriverPage() {
 
   const fetchDriverState = useCallback(async () => {
     try {
-      const bullet = await getBullet();
-      setVehicle(bullet);
-      if (bullet?.id) {
-        const m = await getManifest(bullet.id);
+      const v = await getMyVehicle().catch(() => getBullet());
+      setVehicle(v);
+      if (v?.id) {
+        const m = await getManifest(v.id);
         setManifest(m);
       }
       const active = await getActivePool().catch(() => null);
