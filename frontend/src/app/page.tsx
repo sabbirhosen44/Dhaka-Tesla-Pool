@@ -1,69 +1,129 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
+
+export default function HomePage() {
+  const { user } = useAuth();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="page-container section animate-fade-in" style={{ padding: '64px 24px' }}>
+      <div style={{ maxWidth: 760, margin: '0 auto', textAlign: 'center' }}>
+        {/* Top Badge */}
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 16px',
+            background: 'rgba(56, 189, 248, 0.08)',
+            border: '1px solid var(--border-glow)',
+            borderRadius: 100,
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: 1,
+            textTransform: 'uppercase',
+            color: 'var(--accent-primary)',
+            marginBottom: 24,
+          }}
+        >
+          High-Density Urban Carpool Architecture
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+
+        {/* Hero Title */}
+        <h1
+          style={{
+            fontSize: 'clamp(36px, 6vw, 60px)',
+            fontWeight: 800,
+            letterSpacing: '-1.5px',
+            lineHeight: 1.05,
+            marginBottom: 20,
+            background: 'linear-gradient(135deg, #ffffff 40%, var(--accent-primary) 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
+          Dhaka Tesla Pool
+        </h1>
+
+        {/* Hero Subtitle */}
+        <p
+          style={{
+            fontSize: 18,
+            color: 'var(--text-secondary)',
+            lineHeight: 1.6,
+            marginBottom: 36,
+            maxWidth: 620,
+            margin: '0 auto 36px',
+          }}
+        >
+          High-density corridor carpooling engineered for Banani, Mohakhali, and Gulshan 1.
+          Deterministic seat locking, fair poysha calculation, and real-time SSE vehicle telemetry.
+        </p>
+
+        {/* CTA Buttons */}
+        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {user ? (
+            <Link
+              href={user.role === 'DRIVER' ? '/driver' : '/passenger'}
+              className="btn btn-primary btn-lg"
+            >
+              Open {user.role === 'DRIVER' ? 'Driver Cockpit' : 'Booking Portal'}
+            </Link>
+          ) : (
+            <Link href="/login" className="btn btn-primary btn-lg">
+              Launch Story Switcher
+            </Link>
+          )}
+
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            href="http://localhost:4000/api/docs"
             target="_blank"
             rel="noopener noreferrer"
+            className="btn btn-secondary btn-lg"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
+            Swagger API Docs
           </a>
         </div>
-      </main>
+
+        {/* Architecture Spec Grid */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 16,
+            marginTop: 64,
+            textAlign: 'left',
+          }}
+        >
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-primary)', marginBottom: 6 }}>
+              CORRIDOR MATCHING
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Strict directional alignment preventing zigzag detours through chaotic city traffic.
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-green)', marginBottom: 6 }}>
+              ATOMIC SEAT LOCKS
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Database row-level locks prevent over-subscription beyond Bullet’s 3 passenger seats.
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-secondary)', marginBottom: 6 }}>
+              ISOLATED FARE ENGINE
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Integer-based poysha precision ensuring rider pricing remains fair and completely isolated.
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
