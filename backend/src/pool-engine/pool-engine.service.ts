@@ -96,10 +96,10 @@ export class PoolEngineService {
             poolId: freshPool.id,
             rideRequestId: request.id,
             seatsAllocated: request.seatsRequested,
-            baseFare: fare.baseFareP,
-            distanceFare: fare.distanceFareP,
-            discount: fare.poolDiscountP,
-            finalFare: fare.finalFareP,
+            baseFare: fare.baseFare,
+            distanceFare: fare.distanceFare,
+            discount: fare.discount,
+            finalFare: fare.finalFare,
           },
         });
 
@@ -182,10 +182,10 @@ export class PoolEngineService {
           poolId: newPool.id,
           rideRequestId: request.id,
           seatsAllocated: request.seatsRequested,
-          baseFare: fare.baseFareP,
-          distanceFare: fare.distanceFareP,
-          discount: fare.poolDiscountP,
-          finalFare: fare.finalFareP,
+          baseFare: fare.baseFare,
+          distanceFare: fare.distanceFare,
+          discount: fare.discount,
+          finalFare: fare.finalFare,
         },
       });
 

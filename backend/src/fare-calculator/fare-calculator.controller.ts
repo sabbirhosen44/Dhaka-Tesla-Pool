@@ -1,6 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { FareCalculatorService, FareCalculationResult } from './fare-calculator.service';
+import { FareCalculatorService } from './fare-calculator.service';
+import type { FareCalculationResult } from './fare-calculator.service';
 import { EstimateFareDto } from './dto/estimate-fare.dto';
 
 @ApiTags('Fare Engine')

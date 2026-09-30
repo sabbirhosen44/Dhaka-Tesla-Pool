@@ -13,7 +13,8 @@ import { UpdateVehicleStatusDto } from './dto/update-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles/roles.guard';
 import { Roles } from '../auth/decorators/roles/roles.decorator';
-import { CurrentUser, AuthUserPayload } from '../auth/decorators/current-user/current-user.decorator';
+import { CurrentUser } from '../auth/decorators/current-user/current-user.decorator';
+import type { AuthUserPayload } from '../auth/decorators/current-user/current-user.decorator';
 
 @ApiTags('Vehicle & Manifest')
 @Controller('vehicles')

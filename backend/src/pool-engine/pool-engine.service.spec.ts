@@ -17,10 +17,12 @@ describe('PoolEngineService', () => {
 
   const mockFare = {
     calculateFare: jest.fn().mockReturnValue({
-      baseFareP: 5000,
-      distanceFareP: 10000,
-      poolDiscountP: 3750,
-      finalFareP: 11250,
+      baseFare: 5000,
+      distanceFare: 10000,
+      discount: 3750,
+      finalFare: 11250,
+      distanceKm: 2.8,
+      isPooled: true,
     }),
   };
 
