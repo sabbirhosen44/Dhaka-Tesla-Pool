@@ -15,7 +15,6 @@ import {
 import SeatMeter from '@/components/SeatMeter';
 import LiveFeed from '@/components/LiveFeed';
 
-// All valid corridor routes in the Dhaka Tesla Pool network
 const ROUTES = [
   { pickup: 'BANANI', dropoff: 'MOHAKHALI',  label: 'Banani → Mohakhali',  corridor: 'CENTRAL_CONNECT', estFare: '97.50'  },
   { pickup: 'BANANI', dropoff: 'GULSHAN_1',  label: 'Banani → Gulshan 1',  corridor: 'CENTRAL_CONNECT', estFare: '90.00'  },
@@ -35,6 +34,19 @@ const CORRIDOR_COLORS: Record<string, string> = {
   WEST_NORTH:      '#f472b6',
 };
 
+// Status sets used by lifecycle checks
+const AFTER_MATCH   = ['MATCHED', 'DRIVER_ARRIVED', 'STARTED', 'ACTIVE', 'COMPLETED'];
+const AFTER_ARRIVE  = ['STARTED', 'ACTIVE', 'COMPLETED'];
+const IN_PROGRESS   = ['STARTED', 'ACTIVE'];
+
+function CheckIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 export default function PassengerPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
@@ -50,45 +62,28 @@ export default function PassengerPage() {
   const fetchStatus = useCallback(async () => {
     try {
       const history = await getMyHistory();
-      const current = history.find(
-        (r) =>
-          r.status === 'REQUESTED' ||
-          r.status === 'MATCHED' ||
-          r.status === 'STARTED' ||
-          r.status === 'ACTIVE'
+      const current = history.find((r) =>
+        ['REQUESTED', 'MATCHED', 'DRIVER_ARRIVED', 'STARTED', 'ACTIVE'].includes(r.status)
       );
-      setActiveRequest(current || null);
-
+      setActiveRequest(current ?? null);
       const bullet = await getBullet();
-      if (bullet?.id) {
-        const m = await getManifest(bullet.id);
-        setManifest(m);
-      }
-    } catch (err: unknown) {
-      console.error(err);
-    }
+      if (bullet?.id) setManifest(await getManifest(bullet.id));
+    } catch { /* silent */ }
   }, []);
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
-      return;
-    }
-    if (user && user.role === 'DRIVER') {
-      router.push('/driver');
-      return;
-    }
+    if (!isLoading && !user) { router.push('/login'); return; }
+    if (user?.role === 'DRIVER') { router.push('/driver'); return; }
     if (user) {
       fetchStatus();
-      const timer = setInterval(fetchStatus, 3000);
-      return () => clearInterval(timer);
+      const t = setInterval(fetchStatus, 3000);
+      return () => clearInterval(t);
     }
   }, [user, isLoading, router, fetchStatus]);
 
   const handleBook = async () => {
     try {
-      setSubmitting(true);
-      setError(null);
+      setSubmitting(true); setError(null);
       const req = await createRideRequest({
         pickupZone: selectedRoute.pickup,
         dropoffZone: selectedRoute.dropoff,
@@ -96,317 +91,223 @@ export default function PassengerPage() {
       });
       setActiveRequest(req);
       await fetchStatus();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Ride request failed');
-    } finally {
-      setSubmitting(false);
-    }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Ride request failed');
+    } finally { setSubmitting(false); }
   };
 
   const handleCancel = async () => {
     if (!activeRequest) return;
     try {
-      setCancelling(true);
-      setError(null);
+      setCancelling(true); setError(null);
       await cancelRideRequest(activeRequest.id);
       setActiveRequest(null);
       await fetchStatus();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Cancellation failed');
-    } finally {
-      setCancelling(false);
-    }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Cancellation failed');
+    } finally { setCancelling(false); }
   };
 
   if (isLoading || !user) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-        <div className="spinner" />
-      </div>
-    );
+    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}><div className="spinner" /></div>;
   }
 
-  const rawFarePoysha =
-    activeRequest?.fareInPoysha ||
-    (activeRequest?.pool as unknown as Record<string, number> | null)?.myFarePoysha ||
-    0;
-
-  const displayFareBDT =
-    rawFarePoysha > 0
-      ? (rawFarePoysha / 100).toFixed(2)
-      : (parseFloat(selectedRoute.estFare) * selectedSeats).toFixed(2);
-
+  const pool = activeRequest?.pool as unknown as Record<string, unknown> | null;
+  const rawFarePoysha = activeRequest?.fareInPoysha || (pool?.myFarePoysha as number) || 0;
+  const displayFareBDT = rawFarePoysha > 0
+    ? (rawFarePoysha / 100).toFixed(2)
+    : (parseFloat(selectedRoute.estFare) * selectedSeats).toFixed(2);
   const displayCorridor =
     (activeRequest as Record<string, string> | null)?.corridor ||
     activeRequest?.pool?.corridor ||
     selectedRoute.corridor;
-
   const availableSeats =
-    manifest?.availableSeats ??
-    manifest?.seatsRemaining ??
+    manifest?.availableSeats ?? manifest?.seatsRemaining ??
     Math.max(0, (manifest?.capacity ?? 3) - (manifest?.occupiedSeats ?? 0));
-
   const estimatedFareTotal = (parseFloat(selectedRoute.estFare) * selectedSeats).toFixed(2);
-
-  // True when request exists but wasn't matched to a pool
   const isUnmatched = activeRequest?.status === 'REQUESTED';
-
   const corridorColor = CORRIDOR_COLORS[selectedRoute.corridor] ?? 'var(--accent-primary)';
+  const status = activeRequest?.status ?? '';
 
   return (
     <div className="page-container section animate-fade-in">
+
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: 1,
-              padding: '4px 10px',
-              borderRadius: 100,
-              background: 'rgba(129, 140, 248, 0.15)',
-              color: 'var(--accent-secondary)',
-            }}
-          >
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, padding: '4px 10px', borderRadius: 100, background: 'rgba(129,140,248,0.15)', color: 'var(--accent-secondary)' }}>
             Passenger Portal
           </span>
           <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            Signed in as{' '}
-            <strong style={{ color: 'var(--text-primary)' }}>{user.name}</strong>{' '}
-            ({user.phone})
+            Signed in as <strong style={{ color: 'var(--text-primary)' }}>{user.name}</strong> ({user.phone})
           </span>
         </div>
-        <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.5px' }}>
-          Reserve Electric Commute
-        </h1>
+        <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.5px' }}>Reserve Electric Commute</h1>
       </div>
 
-      {/* Global error banner */}
+      {/* Error banner */}
       {error && (
-        <div
-          style={{
-            background: 'rgba(248, 113, 113, 0.08)',
-            border: '1px solid rgba(248, 113, 113, 0.3)',
-            borderRadius: 'var(--radius-md)',
-            padding: '14px 20px',
-            color: 'var(--accent-red)',
-            fontSize: 14,
-            marginBottom: 24,
-          }}
-        >
+        <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--radius-md)', padding: '14px 20px', color: 'var(--accent-red)', fontSize: 14, marginBottom: 24 }}>
           {error}
         </div>
       )}
 
-      {/* Unmatched warning — shown when booking succeeded but no pool was available */}
+      {/* Unmatched / no-vehicle warning */}
       {isUnmatched && (
-        <div
-          style={{
-            background: 'rgba(251, 146, 60, 0.08)',
-            border: '1px solid rgba(251, 146, 60, 0.35)',
-            borderRadius: 'var(--radius-md)',
-            padding: '16px 20px',
-            marginBottom: 24,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 14,
-          }}
-        >
-          {/* Warning icon */}
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="var(--accent-orange)"
-            strokeWidth="2"
-            style={{ flexShrink: 0, marginTop: 2 }}
-          >
+        <div style={{ background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.35)', borderRadius: 'var(--radius-md)', padding: '16px 20px', marginBottom: 24, display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-            <line x1="12" y1="9" x2="12" y2="13" />
-            <line x1="12" y1="17" x2="12.01" y2="17" />
+            <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
           <div style={{ flex: 1 }}>
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 700,
-                color: 'var(--accent-orange)',
-                marginBottom: 4,
-              }}
-            >
-              No vehicle available right now
-            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-orange)', marginBottom: 4 }}>No vehicle available right now</div>
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
               Your seat request is queued ({activeRequest?.pickupZone} &rarr; {activeRequest?.dropoffZone},{' '}
               {activeRequest?.seatsRequested} seat{(activeRequest?.seatsRequested ?? 1) > 1 ? 's' : ''}).
-              All Bullet EVs are currently at full capacity or offline. You can wait for a slot to open, or cancel and try a different route.
+              All Bullet EVs are at full capacity or offline.
             </div>
             <div style={{ marginTop: 12, display: 'flex', gap: 10 }}>
-              <button
-                onClick={handleCancel}
-                disabled={cancelling}
-                className="btn btn-danger btn-sm"
-              >
+              <button id="btn-cancel-queued" onClick={handleCancel} disabled={cancelling} className="btn btn-danger btn-sm">
                 {cancelling ? 'Cancelling...' : 'Cancel Request'}
               </button>
-              <button
-                onClick={fetchStatus}
-                className="btn btn-secondary btn-sm"
-              >
-                Check Again
-              </button>
+              <button onClick={fetchStatus} className="btn btn-secondary btn-sm">Check Again</button>
             </div>
           </div>
         </div>
       )}
 
       <div className="grid-2">
-        {/* Left Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-          {activeRequest && !isUnmatched ? (
-            /* Active Trip Status Card */
+          {/* ── ACTIVE TRIP CARD ── */}
+          {activeRequest && !isUnmatched && (
             <div className="card">
               <div className="card-header">
                 <div className="card-title">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
+                    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                   </svg>
                   Trip Status
                 </div>
-                <span className={`badge badge-${activeRequest.status.toLowerCase()}`}>
-                  {activeRequest.status}
-                </span>
+                <span className={`badge badge-${status.toLowerCase()}`}>{status}</span>
               </div>
               <div className="card-body">
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Route Corridor
-                  </div>
+
+                {/* Route + stats */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Route</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginTop: 4 }}>
-                    {activeRequest.pickupZone} &rarr; {activeRequest.dropoffZone}
+                    {activeRequest.pickupZone} &rarr; {activeRequest.dropoffZone.replace('_', ' ')}
                   </div>
                 </div>
-
                 <div style={{ display: 'flex', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
                   <div className="stat-block">
                     <div className="stat-label">Isolated Fare</div>
                     <div className="stat-value primary">BDT {displayFareBDT}</div>
                   </div>
                   <div className="stat-block">
-                    <div className="stat-label">Seats Reserved</div>
-                    <div className="stat-value primary">{activeRequest.seatsRequested || 1}</div>
+                    <div className="stat-label">Seats</div>
+                    <div className="stat-value primary">{activeRequest.seatsRequested ?? 1}</div>
                   </div>
                   <div className="stat-block">
                     <div className="stat-label">Corridor</div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: CORRIDOR_COLORS[displayCorridor] ?? 'var(--accent-primary)',
-                        marginTop: 4,
-                        padding: '4px 10px',
-                        borderRadius: 100,
-                        background: 'rgba(56,189,248,0.08)',
-                        border: '1px solid rgba(56,189,248,0.2)',
-                        display: 'inline-block',
-                      }}
-                    >
+                    <span style={{
+                      fontSize: 12, fontWeight: 700, marginTop: 6, display: 'inline-block',
+                      padding: '3px 10px', borderRadius: 100,
+                      background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.2)',
+                      color: CORRIDOR_COLORS[displayCorridor] ?? 'var(--accent-primary)',
+                    }}>
                       {displayCorridor}
-                    </div>
+                    </span>
                   </div>
                 </div>
 
+                {/* 4-step lifecycle stepper */}
                 <div className="stepper" style={{ marginBottom: 24 }}>
-                  <div className={`step ${activeRequest.status !== 'CANCELLED' ? 'done' : ''}`}>
-                    <div className="step-dot">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    </div>
+
+                  <div className="step done">
+                    <div className="step-dot"><CheckIcon /></div>
                     <div className="step-content">
                       <div className="step-title">Request Submitted</div>
                       <div className="step-detail">Seat lock initiated</div>
                     </div>
                   </div>
 
-                  <div
-                    className={`step ${
-                      activeRequest.status === 'MATCHED' || activeRequest.status === 'STARTED' || activeRequest.status === 'ACTIVE' || activeRequest.status === 'COMPLETED'
-                        ? 'done'
-                        : 'active'
-                    }`}
-                  >
-                    <div className="step-dot">
-                      {activeRequest.status === 'MATCHED' || activeRequest.status === 'STARTED' || activeRequest.status === 'ACTIVE' || activeRequest.status === 'COMPLETED' ? (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      ) : (
-                        <span style={{ fontSize: 11 }}>2</span>
-                      )}
-                    </div>
+                  <div className={`step ${AFTER_MATCH.includes(status) ? 'done' : ''}`}>
+                    <div className="step-dot">{AFTER_MATCH.includes(status) ? <CheckIcon /> : <span style={{ fontSize: 11 }}>2</span>}</div>
                     <div className="step-content">
                       <div className="step-title">Matched to Bullet EV</div>
-                      <div className="step-detail">Assigned to driver Jashim</div>
+                      <div className="step-detail">Pool confirmed — seat(s) locked</div>
                     </div>
                   </div>
 
-                  <div
-                    className={`step ${
-                      activeRequest.status === 'STARTED' || activeRequest.status === 'ACTIVE'
-                        ? 'active'
-                        : activeRequest.status === 'COMPLETED'
-                        ? 'done'
-                        : ''
-                    }`}
-                  >
-                    <div className="step-dot">
-                      {activeRequest.status === 'COMPLETED' ? (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      ) : (
-                        <span style={{ fontSize: 11 }}>3</span>
-                      )}
-                    </div>
+                  <div className={`step ${status === 'DRIVER_ARRIVED' ? 'active' : AFTER_ARRIVE.includes(status) ? 'done' : ''}`}>
+                    <div className="step-dot">{AFTER_ARRIVE.includes(status) ? <CheckIcon /> : <span style={{ fontSize: 11 }}>3</span>}</div>
                     <div className="step-content">
-                      <div className="step-title">En Route</div>
+                      <div className="step-title">Driver En Route</div>
                       <div className="step-detail">
-                        {activeRequest.status === 'COMPLETED' ? 'Arrived at destination' : 'Dispatched to dropoff'}
+                        {status === 'DRIVER_ARRIVED' ? 'Bullet EV at pickup — board now' : 'Heading to pickup point'}
                       </div>
+                    </div>
+                  </div>
+
+                  <div className={`step ${IN_PROGRESS.includes(status) ? 'active' : status === 'COMPLETED' ? 'done' : ''}`}>
+                    <div className="step-dot">{status === 'COMPLETED' ? <CheckIcon /> : <span style={{ fontSize: 11 }}>4</span>}</div>
+                    <div className="step-content">
+                      <div className="step-title">Trip Complete</div>
+                      <div className="step-detail">{status === 'COMPLETED' ? 'Arrived at destination' : 'Dropoff pending'}</div>
                     </div>
                   </div>
                 </div>
 
-                {(activeRequest.status === 'MATCHED') && (
-                  <button
-                    onClick={handleCancel}
-                    disabled={cancelling}
-                    className="btn btn-danger"
-                    style={{ width: '100%', justifyContent: 'center' }}
-                  >
-                    {cancelling ? 'Cancelling...' : 'Cancel Reservation'}
-                  </button>
-                )}
+                {/* ── Per-status action area ── */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20 }}>
 
-                {activeRequest.status === 'COMPLETED' && (
-                  <button
-                    onClick={() => setActiveRequest(null)}
-                    className="btn btn-primary"
-                    style={{ width: '100%', justifyContent: 'center' }}
-                  >
-                    Book Another Ride
-                  </button>
-                )}
+                  {/* MATCHED: can still cancel before driver departs */}
+                  {status === 'MATCHED' && (
+                    <button
+                      id="btn-cancel-reservation"
+                      onClick={handleCancel}
+                      disabled={cancelling}
+                      className="btn btn-danger"
+                      style={{ width: '100%', justifyContent: 'center' }}
+                    >
+                      {cancelling ? 'Cancelling...' : 'Cancel Reservation'}
+                    </button>
+                  )}
+
+                  {/* DRIVER_ARRIVED: board prompt */}
+                  {status === 'DRIVER_ARRIVED' && (
+                    <div style={{ padding: '13px 16px', background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.2)', borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--accent-primary)', fontWeight: 600 }}>
+                      Bullet EV has arrived at Banani Road 11. Please board the vehicle.
+                    </div>
+                  )}
+
+                  {/* STARTED / ACTIVE: trip live */}
+                  {IN_PROGRESS.includes(status) && (
+                    <div style={{ padding: '13px 16px', background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--accent-green)', fontWeight: 600 }}>
+                      Trip in progress — sit back and enjoy the ride.
+                    </div>
+                  )}
+
+                  {/* COMPLETED */}
+                  {status === 'COMPLETED' && (
+                    <button
+                      id="btn-book-again"
+                      onClick={() => setActiveRequest(null)}
+                      className="btn btn-primary"
+                      style={{ width: '100%', justifyContent: 'center' }}
+                    >
+                      Book Another Ride
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-          ) : !activeRequest ? (
-            /* Booking Form — only shown when no active/pending request exists */
+          )}
+
+          {/* ── BOOKING FORM (no active request) ── */}
+          {!activeRequest && (
             <div className="card">
               <div className="card-header">
                 <div className="card-title">
@@ -415,30 +316,21 @@ export default function PassengerPage() {
                   </svg>
                   Select Corridor Route
                 </div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {ROUTES.length} routes
-                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{ROUTES.length} routes</span>
               </div>
               <div className="card-body">
 
                 {/* Route list */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
                   {ROUTES.map((route, i) => {
-                    const isSelected =
-                      selectedRoute.pickup === route.pickup &&
-                      selectedRoute.dropoff === route.dropoff;
+                    const isSel = selectedRoute.pickup === route.pickup && selectedRoute.dropoff === route.dropoff;
                     const color = CORRIDOR_COLORS[route.corridor] ?? 'var(--accent-primary)';
                     return (
                       <div
                         key={i}
-                        className={`route-pill ${isSelected ? 'selected' : ''}`}
+                        className={`route-pill ${isSel ? 'selected' : ''}`}
                         onClick={() => setSelectedRoute(route)}
-                        style={{
-                          borderColor: isSelected ? color : undefined,
-                          background: isSelected
-                            ? `color-mix(in srgb, ${color} 8%, var(--bg-base))`
-                            : undefined,
-                        }}
+                        style={{ borderColor: isSel ? color : undefined }}
                       >
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -447,39 +339,20 @@ export default function PassengerPage() {
                             <span className="route-to">{route.dropoff.replace('_', ' ')}</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                            <span
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 700,
-                                padding: '1px 6px',
-                                borderRadius: 4,
-                                background: `color-mix(in srgb, ${color} 12%, transparent)`,
-                                color,
-                                letterSpacing: 0.5,
-                                border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
-                              }}
-                            >
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, letterSpacing: 0.5,
+                              background: `${color}1a`, color, border: `1px solid ${color}4d`,
+                            }}>
                               {route.corridor.replace(/_/g, ' ')}
                             </span>
-                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                              · 3 seat capacity
-                            </span>
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· 3 seat capacity</span>
                           </div>
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                          <div
-                            style={{
-                              fontSize: 15,
-                              fontWeight: 700,
-                              color,
-                              fontFamily: 'var(--font-mono)',
-                            }}
-                          >
+                          <div style={{ fontSize: 15, fontWeight: 700, color, fontFamily: 'var(--font-mono)' }}>
                             BDT {route.estFare}
                           </div>
-                          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                            est. / seat
-                          </div>
+                          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' }}>est. / seat</div>
                         </div>
                       </div>
                     );
@@ -488,69 +361,28 @@ export default function PassengerPage() {
 
                 {/* Seat selector */}
                 <div style={{ marginBottom: 20 }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: 8,
-                    }}
-                  >
-                    <label
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.5,
-                        color: 'var(--text-muted)',
-                      }}
-                    >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>
                       Seats to Reserve
                     </label>
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color:
-                          availableSeats > 0 && availableSeats < selectedSeats
-                            ? 'var(--accent-red)'
-                            : 'var(--text-secondary)',
-                      }}
-                    >
-                      {availableSeats > 0
-                        ? `${availableSeats} seat${availableSeats !== 1 ? 's' : ''} available on Bullet`
-                        : 'Bullet at full capacity'}
+                    <span style={{ fontSize: 12, color: availableSeats > 0 && availableSeats < selectedSeats ? 'var(--accent-red)' : 'var(--text-secondary)' }}>
+                      {availableSeats > 0 ? `${availableSeats} seat${availableSeats !== 1 ? 's' : ''} available on Bullet` : 'Bullet at full capacity'}
                     </span>
                   </div>
-
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                     {[1, 2, 3].map((num) => {
-                      const isSelected = selectedSeats === num;
-                      const isExceeded = availableSeats > 0 && num > availableSeats;
+                      const isSel = selectedSeats === num;
+                      const exceeded = availableSeats > 0 && num > availableSeats;
                       return (
                         <button
-                          key={num}
-                          type="button"
-                          onClick={() => setSelectedSeats(num)}
-                          disabled={isExceeded}
+                          key={num} type="button" onClick={() => setSelectedSeats(num)} disabled={exceeded}
                           style={{
-                            padding: '12px 10px',
-                            borderRadius: 'var(--radius-sm)',
-                            border: isSelected
-                              ? `1px solid ${corridorColor}`
-                              : '1px solid var(--border)',
-                            background: isSelected
-                              ? `color-mix(in srgb, ${corridorColor} 12%, var(--bg-base))`
-                              : 'var(--bg-base)',
-                            color: isSelected
-                              ? corridorColor
-                              : isExceeded
-                              ? 'var(--text-muted)'
-                              : 'var(--text-primary)',
-                            fontWeight: 700,
-                            fontSize: 13,
-                            cursor: isExceeded ? 'not-allowed' : 'pointer',
-                            opacity: isExceeded ? 0.35 : 1,
-                            transition: 'all 0.2s',
+                            padding: '12px 10px', borderRadius: 'var(--radius-sm)',
+                            border: isSel ? `1px solid ${corridorColor}` : '1px solid var(--border)',
+                            background: isSel ? `${corridorColor}1a` : 'var(--bg-base)',
+                            color: isSel ? corridorColor : exceeded ? 'var(--text-muted)' : 'var(--text-primary)',
+                            fontWeight: 700, fontSize: 13, cursor: exceeded ? 'not-allowed' : 'pointer',
+                            opacity: exceeded ? 0.35 : 1, transition: 'all 0.2s',
                           }}
                         >
                           {num} {num === 1 ? 'Seat' : 'Seats'}
@@ -560,26 +392,9 @@ export default function PassengerPage() {
                   </div>
                 </div>
 
-                {/* Fare isolation guarantee */}
-                <div
-                  style={{
-                    background: 'var(--bg-base)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: 16,
-                    marginBottom: 24,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.5,
-                      color: 'var(--text-muted)',
-                      marginBottom: 8,
-                    }}
-                  >
+                {/* Fare isolation note */}
+                <div style={{ background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 16, marginBottom: 24 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 6 }}>
                     Fare Isolation Guarantee
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
@@ -594,15 +409,13 @@ export default function PassengerPage() {
                   className="btn btn-primary btn-lg"
                   style={{ width: '100%', justifyContent: 'center' }}
                 >
-                  {submitting
-                    ? 'Reserving...'
-                    : `Confirm Booking — BDT ${estimatedFareTotal} (${selectedSeats} Seat${selectedSeats > 1 ? 's' : ''})`}
+                  {submitting ? 'Reserving...' : `Confirm Booking — BDT ${estimatedFareTotal} (${selectedSeats} Seat${selectedSeats > 1 ? 's' : ''})`}
                 </button>
               </div>
             </div>
-          ) : null}
+          )}
 
-          {/* Seat Occupancy Card — always visible */}
+          {/* Fleet Seat Occupancy — always visible */}
           <div className="card">
             <div className="card-header">
               <div className="card-title">
@@ -613,16 +426,12 @@ export default function PassengerPage() {
                 Fleet Seat Occupancy
               </div>
             </div>
-            <div className="card-body">
-              <SeatMeter manifest={manifest} />
-            </div>
+            <div className="card-body"><SeatMeter manifest={manifest} /></div>
           </div>
         </div>
 
-        {/* Right Column: Live Feed */}
-        <div>
-          <LiveFeed />
-        </div>
+        {/* Right: Live Feed */}
+        <div><LiveFeed /></div>
       </div>
     </div>
   );
