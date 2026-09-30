@@ -9,12 +9,14 @@
 [![Tests: 18 Passed](https://img.shields.io/badge/Tests-18%2F18%20Passed-brightgreen)](https://jestjs.io/)
 [![Live Frontend](https://img.shields.io/badge/Live_Frontend-Vercel-black?logo=vercel)](https://dhaka-tesla-pool-lake.vercel.app)
 [![Live Backend](https://img.shields.io/badge/Live_API-Render-46E3B7?logo=render)](https://dhaka-tesla-pool-1pr6.onrender.com/api)
+[![Demo Video](https://img.shields.io/badge/Demo_Video-Loom-625df5?logo=loom)](https://www.loom.com/share/e9ab26663f8a40aa8cdcfa99ffca46bd)
 
 ---
 
 ## 🎥 1. Demo Video Link
-* **Live Application:** [https://dhaka-tesla-pool-lake.vercel.app](https://dhaka-tesla-pool-lake.vercel.app)
-* **Walkthrough Video (Loom):** [Click to watch the 6-Minute Loom Walkthrough Video](https://www.loom.com/) *(Paste your final Loom URL here)*
+* **Live Web Application:** [https://dhaka-tesla-pool-lake.vercel.app](https://dhaka-tesla-pool-lake.vercel.app)
+* **Live Backend API (Render):** [https://dhaka-tesla-pool-1pr6.onrender.com/api](https://dhaka-tesla-pool-1pr6.onrender.com/api)
+* **Walkthrough Video (Loom):** [Watch the 6-Minute Loom Project Explanation Video](https://www.loom.com/share/e9ab26663f8a40aa8cdcfa99ffca46bd)
 
 ---
 
