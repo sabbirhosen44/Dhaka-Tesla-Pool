@@ -18,28 +18,28 @@ import SeatMeter from '@/components/SeatMeter';
 import LiveFeed from '@/components/LiveFeed';
 
 const ROUTES = [
-  { pickup: 'BANANI', dropoff: 'MOHAKHALI',  label: 'Banani → Mohakhali',  corridor: 'CENTRAL_CONNECT', estFare: '97.50'  },
-  { pickup: 'BANANI', dropoff: 'GULSHAN_1',  label: 'Banani → Gulshan 1',  corridor: 'CENTRAL_CONNECT', estFare: '90.00'  },
-  { pickup: 'BANANI', dropoff: 'GULSHAN_2',  label: 'Banani → Gulshan 2',  corridor: 'CENTRAL_NORTH',   estFare: '75.00'  },
-  { pickup: 'BANANI', dropoff: 'UTTARA',     label: 'Banani → Uttara',     corridor: 'NORTH_SUBURB',    estFare: '215.62' },
-  { pickup: 'BANANI', dropoff: 'FARMGATE',   label: 'Banani → Farmgate',   corridor: 'CENTRAL_SOUTH',   estFare: '140.62' },
-  { pickup: 'BANANI', dropoff: 'DHANMONDI',  label: 'Banani → Dhanmondi',  corridor: 'WEST_SOUTH',      estFare: '187.50' },
-  { pickup: 'BANANI', dropoff: 'MIRPUR',     label: 'Banani → Mirpur',     corridor: 'WEST_NORTH',      estFare: '172.50' },
+  { pickup: 'BANANI', dropoff: 'MOHAKHALI', label: 'Banani → Mohakhali', corridor: 'CENTRAL_CONNECT', estFare: '97.50' },
+  { pickup: 'BANANI', dropoff: 'GULSHAN_1', label: 'Banani → Gulshan 1', corridor: 'CENTRAL_CONNECT', estFare: '90.00' },
+  { pickup: 'BANANI', dropoff: 'GULSHAN_2', label: 'Banani → Gulshan 2', corridor: 'CENTRAL_NORTH', estFare: '75.00' },
+  { pickup: 'BANANI', dropoff: 'UTTARA', label: 'Banani → Uttara', corridor: 'NORTH_SUBURB', estFare: '215.62' },
+  { pickup: 'BANANI', dropoff: 'FARMGATE', label: 'Banani → Farmgate', corridor: 'CENTRAL_SOUTH', estFare: '140.62' },
+  { pickup: 'BANANI', dropoff: 'DHANMONDI', label: 'Banani → Dhanmondi', corridor: 'WEST_SOUTH', estFare: '187.50' },
+  { pickup: 'BANANI', dropoff: 'MIRPUR', label: 'Banani → Mirpur', corridor: 'WEST_NORTH', estFare: '172.50' },
 ];
 
 const CORRIDOR_COLORS: Record<string, string> = {
   CENTRAL_CONNECT: 'var(--accent-primary)',
-  CENTRAL_NORTH:   'var(--accent-secondary)',
-  NORTH_SUBURB:    'var(--accent-green)',
-  CENTRAL_SOUTH:   'var(--accent-orange)',
-  WEST_SOUTH:      '#a78bfa',
-  WEST_NORTH:      '#f472b6',
+  CENTRAL_NORTH: 'var(--accent-secondary)',
+  NORTH_SUBURB: 'var(--accent-green)',
+  CENTRAL_SOUTH: 'var(--accent-orange)',
+  WEST_SOUTH: '#a78bfa',
+  WEST_NORTH: '#f472b6',
 };
 
 // Status sets used by lifecycle checks
-const AFTER_MATCH   = ['MATCHED', 'DRIVER_ARRIVED', 'STARTED', 'ACTIVE', 'COMPLETED'];
-const AFTER_ARRIVE  = ['STARTED', 'ACTIVE', 'COMPLETED'];
-const IN_PROGRESS   = ['STARTED', 'ACTIVE'];
+const AFTER_MATCH = ['MATCHED', 'DRIVER_ARRIVED', 'STARTED', 'ACTIVE', 'COMPLETED'];
+const AFTER_ARRIVE = ['STARTED', 'ACTIVE', 'COMPLETED'];
+const IN_PROGRESS = ['STARTED', 'ACTIVE'];
 
 function CheckIcon() {
   return (
@@ -90,8 +90,8 @@ export default function PassengerPage() {
     selectedVehicleId === 'auto'
       ? fleetMaxAvailable
       : selectedVehicle
-      ? (selectedVehicle.availableSeats ?? selectedVehicle.capacity)
-      : 0;
+        ? (selectedVehicle.availableSeats ?? selectedVehicle.capacity)
+        : 0;
 
   useEffect(() => {
     if (availableSeats > 0 && selectedSeats > availableSeats) {
@@ -195,7 +195,7 @@ export default function PassengerPage() {
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
               Your seat request is queued ({activeRequest?.pickupZone} &rarr; {activeRequest?.dropoffZone},{' '}
               {activeRequest?.seatsRequested} seat{(activeRequest?.seatsRequested ?? 1) > 1 ? 's' : ''}).
-              All Bullet EVs are at full capacity or offline.
+              All Bullet EVs are at full capacity or offline or your route are not match for pool.
             </div>
             <div style={{ marginTop: 12, display: 'flex', gap: 10 }}>
               <button id="btn-cancel-queued" onClick={handleCancel} disabled={cancelling} className="btn btn-danger btn-sm">
@@ -568,8 +568,8 @@ export default function PassengerPage() {
                           ? `${availableSeats} max seat${availableSeats !== 1 ? 's' : ''} available in fleet`
                           : 'Fleet at full capacity'
                         : availableSeats > 0
-                        ? `${availableSeats} seat${availableSeats !== 1 ? 's' : ''} available on ${selectedVehicle?.model || 'EV'} (${selectedVehicle?.driver?.name || 'Driver'})`
-                        : `${selectedVehicle?.model || 'EV'} (${selectedVehicle?.driver?.name || 'Driver'}) is full`}
+                          ? `${availableSeats} seat${availableSeats !== 1 ? 's' : ''} available on ${selectedVehicle?.model || 'EV'} (${selectedVehicle?.driver?.name || 'Driver'})`
+                          : `${selectedVehicle?.model || 'EV'} (${selectedVehicle?.driver?.name || 'Driver'}) is full`}
                     </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
