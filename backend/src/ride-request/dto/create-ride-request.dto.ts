@@ -18,4 +18,9 @@ export class CreateRideRequestDto {
   @Max(3)
   @IsOptional()
   seatsRequested?: number;
+
+  @ApiProperty({ example: 'vehicle-uuid', description: 'Optional preferred Tesla EV / Driver ID', required: false })
+  @IsString()
+  @IsOptional()
+  preferredVehicleId?: string;
 }

@@ -9,7 +9,9 @@ import {
   cancelRideRequest,
   getBullet,
   getManifest,
+  getAllVehicles,
   RideRequest,
+  Vehicle,
   VehicleManifest,
 } from '@/lib/api';
 import SeatMeter from '@/components/SeatMeter';
@@ -53,6 +55,8 @@ export default function PassengerPage() {
 
   const [selectedRoute, setSelectedRoute] = useState(ROUTES[0]);
   const [selectedSeats, setSelectedSeats] = useState(1);
+  const [fleet, setFleet] = useState<Vehicle[]>([]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('auto');
   const [activeRequest, setActiveRequest] = useState<RideRequest | null>(null);
   const [manifest, setManifest] = useState<VehicleManifest | undefined>();
   const [submitting, setSubmitting] = useState(false);
@@ -66,8 +70,14 @@ export default function PassengerPage() {
         ['REQUESTED', 'MATCHED', 'DRIVER_ARRIVED', 'STARTED', 'ACTIVE'].includes(r.status)
       );
       setActiveRequest(current ?? null);
-      const bullet = await getBullet();
-      if (bullet?.id) setManifest(await getManifest(bullet.id));
+
+      const [bullet, vehicles] = await Promise.all([
+        getBullet().catch(() => null),
+        getAllVehicles(true).catch(() => []),
+      ]);
+
+      if (vehicles.length > 0) setFleet(vehicles);
+      if (bullet?.id) setManifest(await getManifest(bullet.id).catch(() => undefined));
     } catch { /* silent */ }
   }, []);
 
@@ -88,6 +98,7 @@ export default function PassengerPage() {
         pickupZone: selectedRoute.pickup,
         dropoffZone: selectedRoute.dropoff,
         seatsRequested: selectedSeats,
+        preferredVehicleId: selectedVehicleId !== 'auto' ? selectedVehicleId : undefined,
       });
       setActiveRequest(req);
       await fetchStatus();
@@ -404,6 +415,119 @@ export default function PassengerPage() {
                       </div>
                     );
                   })}
+                </div>
+
+                {/* Driver / EV Selector */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>
+                      Select Driver &amp; Tesla EV
+                    </label>
+                    <span style={{ fontSize: 11, color: 'var(--accent-primary)', fontWeight: 600 }}>
+                      {fleet.length} EVs Online
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {/* Option 1: Auto-Assign */}
+                    <div
+                      className={`route-pill ${selectedVehicleId === 'auto' ? 'selected' : ''}`}
+                      onClick={() => setSelectedVehicleId('auto')}
+                      style={{
+                        padding: '10px 14px',
+                        cursor: 'pointer',
+                        borderColor: selectedVehicleId === 'auto' ? 'var(--accent-primary)' : undefined,
+                        background: selectedVehicleId === 'auto' ? 'rgba(56, 189, 248, 0.08)' : undefined,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '50%',
+                          background: 'rgba(56, 189, 248, 0.15)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 16,
+                          flexShrink: 0,
+                        }}>
+                          ⚡
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                            Auto-Assign (Fastest Corridor Match)
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                            System picks optimal Tesla EV along your corridor
+                          </div>
+                        </div>
+                        <span className="badge badge-matched" style={{ fontSize: 10 }}>
+                          Recommended
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Fleet vehicles */}
+                    {fleet.map((v) => {
+                      const isSel = selectedVehicleId === v.id;
+                      const driverName = v.driver?.name || 'Driver';
+                      return (
+                        <div
+                          key={v.id}
+                          className={`route-pill ${isSel ? 'selected' : ''}`}
+                          onClick={() => setSelectedVehicleId(v.id)}
+                          style={{
+                            padding: '10px 14px',
+                            cursor: 'pointer',
+                            borderColor: isSel ? 'var(--accent-secondary)' : undefined,
+                            background: isSel ? 'rgba(129, 140, 248, 0.08)' : undefined,
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: '50%',
+                              background: 'linear-gradient(135deg, var(--accent-secondary), #6366f1)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              color: '#fff',
+                              fontSize: 14,
+                              flexShrink: 0,
+                            }}>
+                              {driverName.charAt(0)}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                  {driverName}
+                                </span>
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                  · {v.model} EV
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                {v.driver?.phone || 'Verified'} · Capacity: {v.capacity} Seats
+                              </div>
+                            </div>
+                            <span style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: 'var(--accent-green)',
+                              background: 'rgba(34, 197, 94, 0.1)',
+                              padding: '2px 8px',
+                              borderRadius: 100,
+                            }}>
+                              🟢 Online
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Seat selector */}

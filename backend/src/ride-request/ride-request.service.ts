@@ -71,7 +71,7 @@ export class RideRequestService {
     });
 
     // 3. Immediately attempt to match into an available Tesla pool
-    await this.poolEngine.tryMatchRequest(rideRequest.id);
+    await this.poolEngine.tryMatchRequest(rideRequest.id, dto.preferredVehicleId);
 
     return this.getRideRequestById(rideRequest.id, passengerId, 'PASSENGER');
   }

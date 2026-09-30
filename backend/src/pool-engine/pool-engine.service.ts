@@ -20,7 +20,7 @@ export class PoolEngineService {
   /**
  Matches a ride request to an existing compatible pool or creates a new one.
    */
-  async tryMatchRequest(rideRequestId: string): Promise<boolean> {
+  async tryMatchRequest(rideRequestId: string, preferredVehicleId?: string): Promise<boolean> {
     const request = await this.prisma.rideRequest.findUnique({
       where: { id: rideRequestId },
       include: { passenger: true },
@@ -30,11 +30,12 @@ export class PoolEngineService {
       return false;
     }
 
-    // Look for an existing OPEN pool on an online vehicle
+    // Look for an existing OPEN pool on an online vehicle (filtered by preferred vehicle if chosen)
     const openPools = await this.prisma.pool.findMany({
       where: {
         status: 'OPEN',
         vehicle: { isOnline: true },
+        ...(preferredVehicleId ? { vehicleId: preferredVehicleId } : {}),
       },
       include: {
         vehicle: true,
@@ -151,6 +152,7 @@ export class PoolEngineService {
     const availableVehicle = await this.prisma.vehicle.findFirst({
       where: {
         isOnline: true,
+        ...(preferredVehicleId ? { id: preferredVehicleId } : {}),
         pools: {
           none: {
             status: { in: ['OPEN', 'FULL', 'ACTIVE'] },

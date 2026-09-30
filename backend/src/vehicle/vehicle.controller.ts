@@ -26,7 +26,8 @@ export class VehicleController {
   @ApiQuery({ name: 'onlineOnly', required: false, type: Boolean })
   @ApiResponse({ status: 200, description: 'List of registered vehicles' })
   getAllVehicles(@Query('onlineOnly') onlineOnly?: string) {
-    return this.vehicleService.getAllVehicles(onlineOnly === 'true');
+    const isOnlineOnly = onlineOnly !== undefined ? onlineOnly === 'true' : undefined;
+    return this.vehicleService.getAllVehicles(isOnlineOnly);
   }
 
   @Get('bullet')

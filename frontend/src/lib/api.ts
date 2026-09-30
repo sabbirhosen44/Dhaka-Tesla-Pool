@@ -81,6 +81,7 @@ export interface CreateRideRequestDto {
   pickupZone: string;
   dropoffZone: string;
   seatsRequested?: number;
+  preferredVehicleId?: string;
 }
 
 export interface RideRequest {
@@ -112,8 +113,9 @@ export interface PoolMember {
 
 export interface Vehicle {
   id: string;
-  name: string;
-  plate: string;
+  name?: string;
+  model?: string;
+  plate?: string;
   capacity: number;
   isOnline: boolean;
   driver?: UserProfile;
