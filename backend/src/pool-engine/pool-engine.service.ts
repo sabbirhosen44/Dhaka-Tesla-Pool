@@ -7,7 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { SyncService } from '../sync/sync.service';
 import { FareCalculatorService } from '../fare-calculator/fare-calculator.service';
-import { areRoutesCompatible } from '../common/constants/dhaka-zones';
+import { areRoutesCompatible, DHAKA_ZONES } from '../common/constants/dhaka-zones';
 
 @Injectable()
 export class PoolEngineService {
@@ -90,20 +90,22 @@ export class PoolEngineService {
           true,
         );
 
+        const seats = request.seatsRequested || 1;
+
         // Add passenger as PoolMember
         await tx.poolMember.create({
           data: {
             poolId: freshPool.id,
             rideRequestId: request.id,
-            seatsAllocated: request.seatsRequested,
-            baseFare: fare.baseFare,
-            distanceFare: fare.distanceFare,
-            discount: fare.discount,
-            finalFare: fare.finalFare,
+            seatsAllocated: seats,
+            baseFare: fare.baseFare * seats,
+            distanceFare: fare.distanceFare * seats,
+            discount: fare.discount * seats,
+            finalFare: fare.finalFare * seats,
           },
         });
 
-        const newOccupied = freshPool.occupiedSeats + request.seatsRequested;
+        const newOccupied = freshPool.occupiedSeats + seats;
         const newStatus = newOccupied >= freshPool.capacity ? 'FULL' : 'OPEN';
 
         await tx.pool.update({
@@ -122,7 +124,7 @@ export class PoolEngineService {
               create: {
                 fromStatus: 'REQUESTED',
                 toStatus: 'MATCHED',
-                note: `Matched to pool ${freshPool.id} (${newOccupied}/${freshPool.capacity} seats occupied)`,
+                note: `Matched to pool ${freshPool.id} (${newOccupied}/${freshPool.capacity} seats occupied for ${seats} seat(s))`,
               },
             },
           },
@@ -136,6 +138,9 @@ export class PoolEngineService {
           poolId: pool.id,
           requestId: request.id,
           passengerName: request.passenger.name,
+          pickupZone: request.pickupZone,
+          dropoffZone: request.dropoffZone,
+          seats: request.seatsRequested || 1,
         });
         return true;
       }
@@ -177,15 +182,17 @@ export class PoolEngineService {
         true,
       );
 
+      const seats = request.seatsRequested || 1;
+
       await tx.poolMember.create({
         data: {
           poolId: newPool.id,
           rideRequestId: request.id,
-          seatsAllocated: request.seatsRequested,
-          baseFare: fare.baseFare,
-          distanceFare: fare.distanceFare,
-          discount: fare.discount,
-          finalFare: fare.finalFare,
+          seatsAllocated: seats,
+          baseFare: fare.baseFare * seats,
+          distanceFare: fare.distanceFare * seats,
+          discount: fare.discount * seats,
+          finalFare: fare.finalFare * seats,
         },
       });
 
@@ -197,7 +204,7 @@ export class PoolEngineService {
             create: {
               fromStatus: 'REQUESTED',
               toStatus: 'MATCHED',
-              note: `Initial passenger in new pool on ${availableVehicle.model}`,
+              note: `Initial passenger in new pool on ${availableVehicle.model} for ${seats} seat(s)`,
             },
           },
         },
@@ -207,6 +214,9 @@ export class PoolEngineService {
         poolId: newPool.id,
         requestId: request.id,
         passengerName: request.passenger.name,
+        pickupZone: request.pickupZone,
+        dropoffZone: request.dropoffZone,
+        seats,
       });
     });
 
@@ -288,7 +298,7 @@ export class PoolEngineService {
    * Get active pool details for driver console
    */
   async getActivePoolForDriver(driverId: string) {
-    return this.prisma.pool.findFirst({
+    const pool = await this.prisma.pool.findFirst({
       where: {
         driverId,
         status: { in: ['OPEN', 'FULL', 'ACTIVE'] },
@@ -307,5 +317,30 @@ export class PoolEngineService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    if (!pool) return null;
+
+    const firstRequest = pool.poolMembers[0]?.rideRequest;
+    const corridor = firstRequest
+      ? DHAKA_ZONES[firstRequest.dropoffZone]?.corridor || 'CENTRAL_CONNECT'
+      : 'CENTRAL_CONNECT';
+
+    const members = pool.poolMembers.map((m) => ({
+      id: m.id,
+      rideRequestId: m.rideRequestId,
+      passenger: m.rideRequest.passenger,
+      fareInPoysha: m.finalFare,
+      fareBDT: (m.finalFare / 100).toFixed(2),
+      pickupZone: m.rideRequest.pickupZone,
+      dropoffZone: m.rideRequest.dropoffZone,
+      joinedAt: m.joinedAt,
+    }));
+
+    return {
+      ...pool,
+      corridor,
+      members,
+      poolMembers: members,
+    };
   }
 }

@@ -21,10 +21,11 @@ export default function SeatMeter({ manifest, loading }: SeatMeterProps) {
     );
   }
 
-  const totalCapacity = manifest?.totalCapacity ?? 3;
+  const totalCapacity = manifest?.capacity ?? manifest?.totalCapacity ?? 3;
   const passengers = manifest?.passengers ?? [];
-  const seatsOccupied = manifest?.seatsOccupied ?? 0;
-  const seatsRemaining = manifest?.seatsRemaining ?? totalCapacity;
+  const seatsOccupied = manifest?.occupiedSeats ?? manifest?.seatsOccupied ?? passengers.length;
+  const seatsRemaining = manifest?.availableSeats ?? manifest?.seatsRemaining ?? Math.max(0, totalCapacity - seatsOccupied);
+  const vehicleName = manifest?.model ?? manifest?.vehicle?.name ?? 'Bullet';
 
   return (
     <div>
@@ -59,7 +60,7 @@ export default function SeatMeter({ manifest, loading }: SeatMeterProps) {
         </div>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>
-            {manifest?.vehicle.name ?? 'Bullet'} — {manifest?.vehicle.plate ?? 'DHAKA-EV-001'}
+            {vehicleName} — DHAKA-EV-001
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
             Tesla Model 3 · Electric Fleet · Capacity: {totalCapacity} Seats
@@ -71,16 +72,17 @@ export default function SeatMeter({ manifest, loading }: SeatMeterProps) {
       <div className="seat-meter" style={{ marginBottom: 16 }}>
         {Array.from({ length: totalCapacity }).map((_, i) => {
           const passenger = passengers[i];
+          const passengerName = passenger?.passengerName || passenger?.name;
           const occupied = i < seatsOccupied;
           return (
             <div
               key={i}
               className={`seat-block ${occupied ? 'occupied' : 'empty'} animate-fade-in`}
-              title={passenger ? passenger.name : `Seat ${i + 1} — Available`}
+              title={passengerName ? passengerName : `Seat ${i + 1} — Available`}
             >
               {occupied ? (
                 <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-primary)' }}>
-                  {passenger ? passenger.name.charAt(0) : 'P'}
+                  {passengerName ? passengerName.charAt(0) : 'P'}
                 </span>
               ) : (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2">
@@ -91,7 +93,7 @@ export default function SeatMeter({ manifest, loading }: SeatMeterProps) {
                 </svg>
               )}
               <span className="seat-label">
-                {occupied && passenger ? passenger.name.split(' ')[0] : `S${i + 1}`}
+                {occupied && passengerName ? passengerName.split(' ')[0] : `S${i + 1}`}
               </span>
             </div>
           );

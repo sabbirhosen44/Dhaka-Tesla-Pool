@@ -25,6 +25,7 @@ export default function PassengerPage() {
   const router = useRouter();
 
   const [selectedRoute, setSelectedRoute] = useState(ROUTES[0]);
+  const [selectedSeats, setSelectedSeats] = useState(1);
   const [activeRequest, setActiveRequest] = useState<RideRequest | null>(null);
   const [manifest, setManifest] = useState<VehicleManifest | undefined>();
   const [submitting, setSubmitting] = useState(false);
@@ -35,7 +36,11 @@ export default function PassengerPage() {
     try {
       const history = await getMyHistory();
       const current = history.find(
-        (r) => r.status === 'PENDING' || r.status === 'MATCHED' || r.status === 'ACTIVE'
+        (r) =>
+          r.status === 'REQUESTED' ||
+          r.status === 'MATCHED' ||
+          r.status === 'STARTED' ||
+          r.status === 'ACTIVE'
       );
       setActiveRequest(current || null);
 
@@ -72,6 +77,7 @@ export default function PassengerPage() {
       const req = await createRideRequest({
         pickupZone: selectedRoute.pickup,
         dropoffZone: selectedRoute.dropoff,
+        seatsRequested: selectedSeats,
       });
       setActiveRequest(req);
       await fetchStatus();
@@ -103,6 +109,26 @@ export default function PassengerPage() {
       </div>
     );
   }
+
+  // Calculate isolated fare and corridor code safely
+  const rawFarePoysha =
+    activeRequest?.fareInPoysha ||
+    (activeRequest?.pool as any)?.myFarePoysha ||
+    0;
+  const displayFareBDT =
+    rawFarePoysha > 0
+      ? (rawFarePoysha / 100).toFixed(2)
+      : (parseFloat(selectedRoute.estFare) * selectedSeats).toFixed(2);
+  const displayCorridor =
+    (activeRequest as any)?.corridor ||
+    activeRequest?.pool?.corridor ||
+    'CENTRAL_CONNECT';
+
+  const availableSeats =
+    manifest?.availableSeats ??
+    manifest?.seatsRemaining ??
+    Math.max(0, (manifest?.capacity ?? 3) - (manifest?.occupiedSeats ?? 0));
+  const estimatedFareTotal = (parseFloat(selectedRoute.estFare) * selectedSeats).toFixed(2);
 
   return (
     <div className="page-container section animate-fade-in">
@@ -176,17 +202,23 @@ export default function PassengerPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 24, marginBottom: 24 }}>
+                <div style={{ display: 'flex', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
                   <div className="stat-block">
                     <div className="stat-label">Isolated Fare</div>
                     <div className="stat-value primary">
-                      BDT {(activeRequest.fareInPoysha / 100).toFixed(2)}
+                      BDT {displayFareBDT}
+                    </div>
+                  </div>
+                  <div className="stat-block">
+                    <div className="stat-label">Seats Reserved</div>
+                    <div className="stat-value primary">
+                      {activeRequest.seatsRequested || 1}
                     </div>
                   </div>
                   <div className="stat-block">
                     <div className="stat-label">Corridor Code</div>
                     <div className="stat-value" style={{ fontSize: 18, alignSelf: 'center' }}>
-                      {activeRequest.pool?.corridor || 'PENDING'}
+                      {displayCorridor}
                     </div>
                   </div>
                 </div>
@@ -204,9 +236,9 @@ export default function PassengerPage() {
                     </div>
                   </div>
 
-                  <div className={`step ${activeRequest.status === 'MATCHED' || activeRequest.status === 'ACTIVE' ? 'done' : 'active'}`}>
+                  <div className={`step ${activeRequest.status === 'MATCHED' || activeRequest.status === 'STARTED' || activeRequest.status === 'ACTIVE' || activeRequest.status === 'COMPLETED' ? 'done' : 'active'}`}>
                     <div className="step-dot">
-                      {activeRequest.status === 'MATCHED' || activeRequest.status === 'ACTIVE' ? (
+                      {activeRequest.status === 'MATCHED' || activeRequest.status === 'STARTED' || activeRequest.status === 'ACTIVE' || activeRequest.status === 'COMPLETED' ? (
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
@@ -220,18 +252,26 @@ export default function PassengerPage() {
                     </div>
                   </div>
 
-                  <div className={`step ${activeRequest.status === 'ACTIVE' ? 'active' : ''}`}>
+                  <div className={`step ${activeRequest.status === 'STARTED' || activeRequest.status === 'ACTIVE' ? 'active' : activeRequest.status === 'COMPLETED' ? 'done' : ''}`}>
                     <div className="step-dot">
-                      <span style={{ fontSize: 11 }}>3</span>
+                      {activeRequest.status === 'COMPLETED' ? (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      ) : (
+                        <span style={{ fontSize: 11 }}>3</span>
+                      )}
                     </div>
                     <div className="step-content">
                       <div className="step-title">En Route</div>
-                      <div className="step-detail">Dispatched to dropoff</div>
+                      <div className="step-detail">
+                        {activeRequest.status === 'COMPLETED' ? 'Arrived at destination' : 'Dispatched to dropoff'}
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {activeRequest.status === 'PENDING' && (
+                {(activeRequest.status === 'REQUESTED' || activeRequest.status === 'PENDING') && (
                   <button
                     onClick={handleCancel}
                     disabled={cancelling}
@@ -239,6 +279,16 @@ export default function PassengerPage() {
                     style={{ width: '100%', justifyContent: 'center' }}
                   >
                     {cancelling ? 'Cancelling...' : 'Cancel Reservation'}
+                  </button>
+                )}
+
+                {activeRequest.status === 'COMPLETED' && (
+                  <button
+                    onClick={() => setActiveRequest(null)}
+                    className="btn btn-primary"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    Book Another Ride
                   </button>
                 )}
               </div>
@@ -288,6 +338,47 @@ export default function PassengerPage() {
                   })}
                 </div>
 
+                {/* Dynamic Seat Occupancy Selector (1, 2, or 3 seats) */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>
+                      Seats to Reserve
+                    </label>
+                    <span style={{ fontSize: 12, color: availableSeats < selectedSeats && availableSeats > 0 ? 'var(--accent-red)' : 'var(--text-secondary)' }}>
+                      {availableSeats > 0 ? `${availableSeats} seat${availableSeats !== 1 ? 's' : ''} available` : 'Full capacity'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                    {[1, 2, 3].map((num) => {
+                      const isSelected = selectedSeats === num;
+                      const isExceeded = availableSeats > 0 && num > availableSeats;
+                      return (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setSelectedSeats(num)}
+                          disabled={isExceeded}
+                          style={{
+                            padding: '12px 10px',
+                            borderRadius: 'var(--radius-sm)',
+                            border: isSelected ? '1px solid var(--accent-primary)' : '1px solid var(--border)',
+                            background: isSelected ? 'rgba(56, 189, 248, 0.12)' : 'var(--bg-base)',
+                            color: isSelected ? 'var(--accent-primary)' : isExceeded ? 'var(--text-muted)' : 'var(--text-primary)',
+                            fontWeight: 700,
+                            fontSize: 13,
+                            cursor: isExceeded ? 'not-allowed' : 'pointer',
+                            opacity: isExceeded ? 0.35 : 1,
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          {num} {num === 1 ? 'Seat' : 'Seats'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div style={{ background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 16, marginBottom: 24 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 8 }}>
                     Fare Isolation Guarantee
@@ -300,11 +391,13 @@ export default function PassengerPage() {
                 <button
                   id="book-ride-btn"
                   onClick={handleBook}
-                  disabled={submitting}
+                  disabled={submitting || (availableSeats > 0 && selectedSeats > availableSeats)}
                   className="btn btn-primary btn-lg"
                   style={{ width: '100%', justifyContent: 'center' }}
                 >
-                  {submitting ? 'Reserving...' : `Confirm Booking — BDT ${selectedRoute.estFare}`}
+                  {submitting
+                    ? 'Reserving...'
+                    : `Confirm Booking — BDT ${estimatedFareTotal} (${selectedSeats} Seat${selectedSeats > 1 ? 's' : ''})`}
                 </button>
               </div>
             </div>

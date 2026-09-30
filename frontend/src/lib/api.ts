@@ -27,7 +27,7 @@ export const getActors = () => apiFetch<Actor[]>('/auth/actors');
 export const demoLogin = (actorName: string) =>
   apiFetch<LoginResponse>('/auth/demo-login', {
     method: 'POST',
-    body: JSON.stringify({ actorName }),
+    body: JSON.stringify({ name: actorName, actorName }),
   });
 export const getMe = () => apiFetch<UserProfile>('/auth/me');
 
@@ -61,7 +61,8 @@ export interface Actor {
 }
 
 export interface LoginResponse {
-  access_token: string;
+  accessToken: string;
+  access_token?: string;
   user: UserProfile;
 }
 
@@ -75,6 +76,7 @@ export interface UserProfile {
 export interface CreateRideRequestDto {
   pickupZone: string;
   dropoffZone: string;
+  seatsRequested?: number;
 }
 
 export interface RideRequest {
@@ -82,7 +84,9 @@ export interface RideRequest {
   status: string;
   pickupZone: string;
   dropoffZone: string;
+  seatsRequested?: number;
   fareInPoysha: number;
+  corridor?: string;
   createdAt: string;
   pool?: Pool;
 }
@@ -111,12 +115,33 @@ export interface Vehicle {
   driver?: UserProfile;
 }
 
+export interface ManifestPassenger {
+  memberId?: string;
+  rideRequestId?: string;
+  passengerName?: string;
+  name?: string;
+  passengerPhone?: string;
+  phone?: string;
+  pickupZone?: string;
+  dropoffZone?: string;
+  seatsAllocated?: number;
+  finalFarePoysha?: number;
+  finalFareBDT?: string;
+}
+
 export interface VehicleManifest {
-  vehicle: Vehicle;
-  totalCapacity: number;
-  seatsOccupied: number;
-  seatsRemaining: number;
-  passengers: UserProfile[];
+  vehicleId?: string;
+  model?: string;
+  capacity?: number;
+  totalCapacity?: number;
+  occupiedSeats?: number;
+  seatsOccupied?: number;
+  availableSeats?: number;
+  seatsRemaining?: number;
+  isOnline?: boolean;
+  driver?: UserProfile;
+  passengers?: ManifestPassenger[];
+  vehicle?: Vehicle;
 }
 
 export type TripAction = 'ARRIVE' | 'START' | 'COMPLETE';

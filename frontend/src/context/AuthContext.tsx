@@ -38,8 +38,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (actorName: string) => {
     const res = await demoLogin(actorName);
-    localStorage.setItem('dtp_token', res.access_token);
-    setToken(res.access_token);
+    const token = res.accessToken || res.access_token || '';
+    localStorage.setItem('dtp_token', token);
+    setToken(token);
     setUser(res.user);
     if (res.user.role === 'DRIVER') {
       router.push('/driver');

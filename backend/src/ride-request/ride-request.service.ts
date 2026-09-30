@@ -107,17 +107,24 @@ export class RideRequestService {
       throw new ForbiddenException('You are not authorized to view another passenger’s ride');
     }
 
+    const zoneInfo = DHAKA_ZONES[request.dropoffZone];
+    const fareInPoysha = request.poolMember ? request.poolMember.finalFare : 0;
+    const corridor = zoneInfo?.corridor || 'CENTRAL_CONNECT';
+
     return {
       id: request.id,
       status: request.status,
       pickupZone: request.pickupZone,
       dropoffZone: request.dropoffZone,
       seatsRequested: request.seatsRequested,
+      fareInPoysha,
+      corridor,
       passenger: request.passenger,
       pool: request.poolMember
         ? {
             poolId: request.poolMember.poolId,
             poolStatus: request.poolMember.pool.status,
+            corridor,
             vehicle: request.poolMember.pool.vehicle,
             driver: request.poolMember.pool.driver,
             // Individual fare receipt in Poysha and BDT
@@ -196,12 +203,40 @@ export class RideRequestService {
    * Passenger ride history
    */
   async getPassengerHistory(passengerId: string) {
-    return this.prisma.rideRequest.findMany({
+    const list = await this.prisma.rideRequest.findMany({
       where: { passengerId },
       include: {
-        poolMember: true,
+        poolMember: {
+          include: {
+            pool: {
+              include: {
+                vehicle: true,
+                driver: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
+    });
+
+    return list.map((request) => {
+      const zoneInfo = DHAKA_ZONES[request.dropoffZone];
+      const fareInPoysha = request.poolMember?.finalFare ?? 0;
+      const corridor = zoneInfo?.corridor ?? 'CENTRAL_CONNECT';
+      return {
+        ...request,
+        fareInPoysha,
+        corridor,
+        pool: request.poolMember
+          ? {
+              ...request.poolMember.pool,
+              corridor,
+              myFarePoysha: fareInPoysha,
+              myFareBDT: (fareInPoysha / 100).toFixed(2),
+            }
+          : null,
+      };
     });
   }
 }

@@ -19,4 +19,13 @@ export class DemoLoginDto {
   @IsString()
   @IsOptional()
   name?: string;
+
+  @ApiProperty({
+    example: 'Nusrat',
+    description: 'Alternative actor name field from client',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  actorName?: string;
 }

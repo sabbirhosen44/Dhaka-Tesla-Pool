@@ -161,7 +161,7 @@ export default function DriverPage() {
                         Total Manifest
                       </div>
                       <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-primary)', marginTop: 2 }}>
-                        {pool.members.length} / 3 Riders
+                        {(pool.members || (pool as any).poolMembers || []).length} / 3 Riders
                       </div>
                     </div>
                   </div>
@@ -172,55 +172,73 @@ export default function DriverPage() {
                       Manifest Details
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {pool.members.map((member, idx) => (
-                        <div
-                          key={member.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '10px 14px',
-                            background: 'var(--bg-base)',
-                            borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--border)',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span
-                              style={{
-                                width: 24,
-                                height: 24,
-                                borderRadius: '50%',
-                                background: 'rgba(56, 189, 248, 0.1)',
-                                color: 'var(--accent-primary)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 11,
-                                fontWeight: 700,
-                              }}
-                            >
-                              {idx + 1}
-                            </span>
-                            <div>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                                {member.passenger.name}
+                      {(pool.members || (pool as any).poolMembers || []).map((member, idx) => {
+                        const passengerName =
+                          member.passenger?.name ||
+                          (member as any).rideRequest?.passenger?.name ||
+                          'Passenger';
+                        const passengerPhone =
+                          member.passenger?.phone ||
+                          (member as any).rideRequest?.passenger?.phone ||
+                          '';
+                        const fareVal =
+                          member.fareInPoysha ??
+                          (member as any).finalFare ??
+                          0;
+                        const fareBDT =
+                          (member as any).fareBDT ||
+                          (fareVal > 0 ? (fareVal / 100).toFixed(2) : '0.00');
+
+                        return (
+                          <div
+                            key={member.id || idx}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '10px 14px',
+                              background: 'var(--bg-base)',
+                              borderRadius: 'var(--radius-sm)',
+                              border: '1px solid var(--border)',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span
+                                style={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: '50%',
+                                  background: 'rgba(56, 189, 248, 0.1)',
+                                  color: 'var(--accent-primary)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {idx + 1}
+                              </span>
+                              <div>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                                  {passengerName}
+                                </div>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                  {passengerPhone}
+                                </div>
                               </div>
-                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                {member.passenger.phone}
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-green)', fontFamily: 'var(--font-mono)' }}>
+                                BDT {fareBDT}
+                              </div>
+                              <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                                Isolated
                               </div>
                             </div>
                           </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-green)', fontFamily: 'var(--font-mono)' }}>
-                              BDT {(member.fareInPoysha / 100).toFixed(2)}
-                            </div>
-                            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                              Isolated
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 

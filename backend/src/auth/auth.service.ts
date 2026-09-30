@@ -33,15 +33,16 @@ export class AuthService {
 
 
   async demoLogin(dto: DemoLoginDto) {
-    if (!dto.phone && !dto.name) {
-      throw new BadRequestException('Provide either phone or name for demo login');
+    const actorName = dto.name || dto.actorName;
+    if (!dto.phone && !actorName) {
+      throw new BadRequestException('Provide either phone, name, or actorName for demo login');
     }
 
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [
           dto.phone ? { phone: dto.phone } : undefined,
-          dto.name ? { name: { equals: dto.name, mode: 'insensitive' } } : undefined,
+          actorName ? { name: { equals: actorName, mode: 'insensitive' } } : undefined,
         ].filter(Boolean) as any,
       },
       include: {
